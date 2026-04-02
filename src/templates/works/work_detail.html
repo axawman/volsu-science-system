@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+
+{% block title %}{{ work.title }}{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+
+    <div class="col-lg-8">
+        <div class="card shadow-sm border-0 rounded-4">
+            <div class="card-body p-4">
+
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div>
+                        <h1 class="h4 text-primary mb-1">{{ work.title }}</h1>
+                        <div class="text-secondary small">
+                            Создано: {{ work.created_at }}<br>
+                            Обновлено: {{ work.updated_at }}
+                        </div>
+                    </div>
+
+                    <div class="text-end">
+                        <span class="badge text-bg-primary mb-1">{{ work.visibility_display }}</span><br>
+                        <span class="badge text-bg-secondary">{{ work.get_status_display }}</span>
+                    </div>
+                </div>
+
+                <hr>
+
+                <div class="mb-4">
+                    <h2 class="h6 text-primary">Автор работы</h2>
+
+                    <div class="d-flex align-items-start gap-3 border rounded-3 p-3 bg-light">
+                        {% if work.author.profile.photo %}
+                            <img src="{{ work.author.profile.photo.url }}"
+                                 class="rounded-circle"
+                                 width="72" height="72"
+                                 style="object-fit: cover;"
+                                 alt="Фото автора">
+                        {% else %}
+                            <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center"
+                                 style="width:72px;height:72px;font-size:24px;">
+                                {{ work.author.username|slice:":1"|upper }}
+                            </div>
+                        {% endif %}
+
+                        <div>
+                            <div class="fw-semibold">
+                                {% if work.author.profile.full_name %}
+                                    {{ work.author.profile.full_name }}
+                                {% else %}
+                                    {{ work.author.username }}
+                                {% endif %}
+                            </div>
+                            <div class="text-secondary small mb-2">@{{ work.author.username }}</div>
+
+                            {% if work.author.email %}
+                                <div class="small mb-2">
+                                    <strong>Email:</strong> {{ work.author.email }}
+                                </div>
+                            {% endif %}
+
+                            {% if work.author.profile.bio %}
+                                <div class="small" style="white-space: pre-wrap;">{{ work.author.profile.bio }}</div>
+                            {% else %}
+                                <div class="small text-secondary">Информация об авторе пока не заполнена.</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                {% if work.description %}
+                    <div class="mb-4">
+                        <h2 class="h6 text-primary">Краткое описание</h2>
+                        <p class="mb-0">{{ work.description }}</p>
+                    </div>
+                {% endif %}
+
+                <div>
+                    <h2 class="h5 text-primary mb-3">Содержимое работы</h2>
+
+                    {% if work.content %}
+                        <div class="border rounded-3 p-3 bg-light-subtle">
+                            <div style="white-space: pre-wrap; line-height: 1.7;">{{ work.content }}</div>
+                        </div>
+                    {% else %}
+                        <p class="text-secondary mb-0">Содержимое работы пока не добавлено.</p>
+                    {% endif %}
+                </div>
+
+            </div>
+        </div>
+
+        <div class="card shadow-sm border-0 rounded-4 mt-4">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h2 class="h5 text-primary mb-0">Версии работы</h2>
+                    {% if request.user == work.author or request.user.profile.is_admin %}
+                        <a href="/works/{{ work.id }}/upload-version/" class="btn btn-sm btn-outline-primary">
+                            + Новая версия
+                        </a>
+                    {% endif %}
+                </div>
+
+                {% for version in versions %}
+                    <div class="border-bottom pb-3 mb-3">
+                        <div class="d-flex justify-content-between gap-3">
+                            <div>
+                                <div class="fw-semibold">Версия {{ version.version_number }}</div>
+                                <div class="small text-secondary mt-1">
+                                    Загружено: {{ version.created_at }}<br>
+                                    Пользователь: {{ version.uploaded_by.username }}
+                                </div>
+                                {% if version.comment %}
+                                    <div class="mt-2 small">{{ version.comment }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div>
+                                <a href="{{ version.file.url }}" class="btn btn-sm btn-primary" target="_blank">
+                                    Скачать
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                {% empty %}
+                    <p class="text-secondary mb-0">Версий пока нет.</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        {% if work.visibility == "public" %}
+            <div class="card shadow-sm border-0 rounded-4 mt-4">
+                <div class="card-body p-4">
+                    <h2 class="h5 text-primary mb-3">Комментарии</h2>
+
+                    {% if request.user.is_authenticated %}
+                        <form method="post" class="mb-4">
+                            {% csrf_token %}
+                            {{ comment_form.text }}
+                            <div class="mt-3">
+                                <button type="submit" class="btn btn-primary">
+                                    Оставить комментарий
+                                </button>
+                            </div>
+                        </form>
+                    {% else %}
+                        <div class="alert alert-light border mb-4">
+                            Чтобы оставить комментарий, нужно <a href="/login/">войти</a>.
+                        </div>
+                    {% endif %}
+
+                    {% for comment in comments %}
+                        <div class="border rounded-3 p-3 mb-3 bg-light">
+                            <div class="d-flex justify-content-between align-items-start gap-3 mb-2">
+                                <div>
+                                    <div class="fw-semibold">
+                                        {% if comment.author.profile.full_name %}
+                                            {{ comment.author.profile.full_name }}
+                                        {% else %}
+                                            {{ comment.author.username }}
+                                        {% endif %}
+                                    </div>
+                                    <div class="small text-secondary">@{{ comment.author.username }}</div>
+                                </div>
+                                <div class="small text-secondary">
+                                    {{ comment.created_at }}
+                                </div>
+                            </div>
+
+                            <div style="white-space: pre-wrap;">{{ comment.text }}</div>
+                        </div>
+                    {% empty %}
+                        <p class="text-secondary mb-0">Комментариев пока нет.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card shadow-sm border-0 rounded-4">
+            <div class="card-body p-4">
+                <h3 class="h6 text-primary mb-3">Действия</h3>
+
+                <div class="d-grid gap-2">
+                    {% if request.user == work.author or request.user.profile.is_admin %}
+                        <a href="/works/{{ work.id }}/update/" class="btn btn-outline-primary">
+                            Редактировать работу
+                        </a>
+
+                        <a href="/works/{{ work.id }}/upload-version/" class="btn btn-outline-primary">
+                            Добавить версию
+                        </a>
+                    {% endif %}
+
+                    <a href="/works/" class="btn btn-outline-secondary">
+                        Все работы
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [['\\(','\\)'], ['$', '$']],
+    displayMath: [['$$','$$'], ['\\[','\\]']]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+{% endblock %}

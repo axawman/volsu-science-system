@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Добавление версии{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card shadow-sm border-0 rounded-4">
+            <div class="card-body p-4">
+                <h1 class="h3 text-primary mb-2">Добавить новую версию</h1>
+                <p class="text-secondary mb-1"><strong>Работа:</strong> {{ work.title }}</p>
+                <p class="text-secondary mb-4">
+                    Здесь загружается новый файл работы. После сохранения будет создана новая версия.
+                </p>
+
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+
+                    <div class="mb-3">
+                        <label for="{{ form.file.id_for_label }}" class="form-label">Файл новой версии</label>
+                        {{ form.file }}
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="{{ form.comment.id_for_label }}" class="form-label">Комментарий к версии</label>
+                        {{ form.comment }}
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">Добавить версию</button>
+                        <a href="/works/{{ work.id }}/" class="btn btn-outline-primary">К работе</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Редактирование работы{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card shadow-sm border-0 rounded-4">
+            <div class="card-body p-4">
+                <h1 class="h3 text-primary mb-2">Редактировать работу</h1>
+                <p class="text-secondary mb-4">{{ work.title }}</p>
+
+                <form method="post">
+                    {% csrf_token %}
+
+                    <div class="mb-3">
+                        <label for="{{ form.title.id_for_label }}" class="form-label">Название работы</label>
+                        {{ form.title }}
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.description.id_for_label }}" class="form-label">Описание</label>
+                        {{ form.description }}
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.content.id_for_label }}" class="form-label">Содержимое работы</label>
+                        {{ form.content }}
+                        <div class="form-text">
+                            Можно использовать LaTeX-формулы, например: \( a^2 + b^2 = c^2 \) или $$\int_0^1 x^2 dx$$
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="{{ form.visibility.id_for_label }}" class="form-label">Видимость</label>
+                        {{ form.visibility }}
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">Сохранить изменения</button>
+                        <a href="/works/{{ work.id }}/" class="btn btn-outline-primary">К работе</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

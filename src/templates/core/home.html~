@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+
+{% block title %}Главная — Система регистрации научной деятельности ВолГУ{% endblock %}
+
+{% block content %}
+<div class="row g-4 mb-4">
+    <div class="col-lg-8">
+        <div class="card-soft p-4 h-100">
+            <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-3">
+                <div>
+                    <h1 class="section-title mb-2" style="font-size: 1.4rem;">Научные работы</h1>
+                    <p class="text-soft mb-0">
+                        Последние добавленные работы, материалы и изменения по исследованиям.
+                    </p>
+                </div>
+
+                <div class="d-flex gap-2 flex-wrap">
+                    <a href="/works/create/" class="btn btn-primary">Добавить работу</a>
+                    <a href="/works/" class="btn btn-outline-primary">Все работы</a>
+                </div>
+            </div>
+
+            {% for work in latest_works %}
+                <div class="mini-list-item">
+                    <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
+                        <div>
+                            <a href="/works/{{ work.id }}/" class="mini-list-title fs-5">
+                                {{ work.title }}
+                            </a>
+                            <div class="meta">
+                                Автор: {{ work.author.username }}<br>
+                                Статус: {{ work.status }}<br>
+                                Создано: {{ work.created_at|date:"d.m.Y H:i" }}
+                            </div>
+                        </div>
+
+                        <span class="badge badge-soft">{{ work.visibility }}</span>
+                    </div>
+                </div>
+            {% empty %}
+                <p class="text-soft mb-0">Пока нет добавленных работ.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card-soft p-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h2 class="section-title mb-0">Календарь</h2>
+                <div class="small text-soft">
+                    <span class="calendar-dot meeting me-1"></span> встречи
+                    <span class="calendar-dot event ms-2 me-1"></span> события
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <button class="btn btn-sm btn-outline-primary rounded-pill px-3" id="prev-month">←</button>
+                <div class="fw-semibold text-primary small" id="calendar-title"></div>
+                <button class="btn btn-sm btn-outline-primary rounded-pill px-3" id="next-month">→</button>
+            </div>
+
+            <div class="calendar-grid compact-calendar-head mb-2">
+                <div class="calendar-head">Пн</div>
+                <div class="calendar-head">Вт</div>
+                <div class="calendar-head">Ср</div>
+                <div class="calendar-head">Чт</div>
+                <div class="calendar-head">Пт</div>
+                <div class="calendar-head">Сб</div>
+                <div class="calendar-head">Вс</div>
+            </div>
+
+            <div id="calendar-days" class="calendar-grid compact-calendar"></div>
+        </div>
+
+        <div class="card-soft p-4 mt-4">
+            <h2 class="section-title mb-3">Ближайшая активность</h2>
+
+            {% for event in upcoming_events|slice:":2" %}
+                <div class="mini-list-item">
+                    <div class="fw-semibold">{{ event.title }}</div>
+                    <div class="meta">
+                        Событие: {{ event.event_date|date:"d.m.Y H:i" }}<br>
+                        {{ event.location }}
+                    </div>
+                </div>
+            {% empty %}
+            {% endfor %}
+
+            {% for meeting in upcoming_meetings|slice:":2" %}
+                <div class="mini-list-item">
+                    <div class="fw-semibold">{{ meeting.title }}</div>
+                    <div class="meta">
+                        Встреча: {{ meeting.start_at|date:"d.m.Y H:i" }}<br>
+                        {{ meeting.location }}
+                    </div>
+                </div>
+            {% empty %}
+            {% endfor %}
+
+            {% if not upcoming_events and not upcoming_meetings %}
+                <p class="text-soft mb-0">Ближайшей активности пока нет.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card-soft p-4 h-100">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2 class="section-title mb-0">Ближайшие встречи</h2>
+            </div>
+
+            {% for meeting in upcoming_meetings %}
+                <div class="mini-list-item">
+                    <div class="fw-semibold">{{ meeting.title }}</div>
+                    <div class="meta">
+                        {{ meeting.start_at|date:"d.m.Y H:i" }} – {{ meeting.end_at|date:"d.m.Y H:i" }}<br>
+                        Место: {{ meeting.location }}<br>
+                        Организатор: {{ meeting.created_by.username }}
+                    </div>
+                </div>
+            {% empty %}
+                <p class="text-soft mb-0">Ближайших встреч нет.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card-soft p-4 h-100">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2 class="section-title mb-0">Предстоящие события</h2>
+            </div>
+
+            {% for event in upcoming_events %}
+                <div class="mini-list-item">
+                    <div class="fw-semibold">{{ event.title }}</div>
+                    <div class="meta">
+                        Дата: {{ event.event_date|date:"d.m.Y H:i" }}<br>
+                        Место: {{ event.location }}<br>
+                        Добавил: {{ event.created_by.username }}
+                    </div>
+                </div>
+            {% empty %}
+                <p class="text-soft mb-0">Предстоящих событий нет.</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<style>
+    .compact-calendar .calendar-day {
+        min-height: 52px;
+        padding: 0.35rem;
+        border-radius: 0.7rem;
+    }
+
+    .compact-calendar .calendar-day-number {
+        font-size: 0.8rem;
+        margin-bottom: 0.15rem;
+    }
+
+    .compact-calendar .calendar-events {
+        gap: 3px;
+    }
+
+    .compact-calendar-head .calendar-head {
+        font-size: 0.76rem;
+    }
+</style>
+
+{{ calendar_items|json_script:"calendar-data" }}
+{{ today|json_script:"today-data" }}
+
+<script>
+const calendarItems = JSON.parse(document.getElementById("calendar-data").textContent);
+const todayStr = JSON.parse(document.getElementById("today-data").textContent);
+
+const titleEl = document.getElementById("calendar-title");
+const daysEl = document.getElementById("calendar-days");
+const prevBtn = document.getElementById("prev-month");
+const nextBtn = document.getElementById("next-month");
+
+const monthNames = [
+    "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
+    "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"
+];
+
+let currentDate = new Date();
+
+function formatDateLocal(date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+}
+
+function getMondayFirstDay(jsDay) {
+    return jsDay === 0 ? 6 : jsDay - 1;
+}
+
+function renderCalendar(date) {
+    daysEl.innerHTML = "";
+
+    const year = date.getFullYear();
+    const month = date.getMonth();
+
+    titleEl.textContent = `${monthNames[month]} ${year}`;
+
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+
+    const startOffset = getMondayFirstDay(firstDay.getDay());
+    const daysInMonth = lastDay.getDate();
+    const prevMonthLastDay = new Date(year, month, 0).getDate();
+
+    for (let i = startOffset - 1; i >= 0; i--) {
+        const dayNum = prevMonthLastDay - i;
+        const cell = document.createElement("div");
+        cell.className = "calendar-day other-month";
+        cell.innerHTML = `<div class="calendar-day-number">${dayNum}</div>`;
+        daysEl.appendChild(cell);
+    }
+
+    for (let day = 1; day <= daysInMonth; day++) {
+        const cellDate = new Date(year, month, day);
+        const dateStr = formatDateLocal(cellDate);
+
+        const cell = document.createElement("div");
+        cell.className = "calendar-day";
+        if (dateStr === todayStr) {
+            cell.classList.add("today");
+        }
+
+        const dayEvents = calendarItems.filter(item => item.date === dateStr);
+
+        const eventsHtml = dayEvents.map(item => `
+            <span class="calendar-dot ${item.type}" title="${item.title}"></span>
+        `).join("");
+
+        cell.innerHTML = `
+            <div class="calendar-day-number">${day}</div>
+            <div class="calendar-events">${eventsHtml}</div>
+        `;
+
+        daysEl.appendChild(cell);
+    }
+
+    const totalCells = startOffset + daysInMonth;
+    const remaining = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
+
+    for (let i = 1; i <= remaining; i++) {
+        const cell = document.createElement("div");
+        cell.className = "calendar-day other-month";
+        cell.innerHTML = `<div class="calendar-day-number">${i}</div>`;
+        daysEl.appendChild(cell);
+    }
+}
+
+prevBtn.addEventListener("click", () => {
+    currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
+    renderCalendar(currentDate);
+});
+
+nextBtn.addEventListener("click", () => {
+    currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
+    renderCalendar(currentDate);
+});
+
+renderCalendar(currentDate);
+</script>
+{% endblock %}
