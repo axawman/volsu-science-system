@@ -102,7 +102,7 @@ src/
 
 ## Автор
 
-- GitHub: https://github.com/USERNAME  
+- GitHub: https://github.com/axawman  
 
 ---
 
