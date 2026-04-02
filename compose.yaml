@@ -16,7 +16,7 @@ services:
     build: .
     container_name: science_registry_web
     restart: unless-stopped
-    command: sh -c "cd /app/src && python manage.py runserver 0.0.0.0:8000"
+    command: sh -c "cd /app/src && python manage.py runserver 0.0.0.0:8000 --insecure"
     volumes:
       - .:/app
     env_file:
