@@ -21,6 +21,14 @@ class RegisterForm(UserCreationForm):
             "username": forms.TextInput(attrs={"class": "form-control"}),
         }
 
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+
+        if not email.endswith('@volsu.ru'):
+            raise forms.ValidationError('Регистрация доступна только для @volsu.ru')
+
+        return email
+
     password1 = forms.CharField(
         label="Пароль",
         widget=forms.PasswordInput(attrs={"class": "form-control"})
