@@ -23,8 +23,8 @@ class Work(models.Model):
     ]
 
     VISIBILITY_CHOICES = [
-        ("private", "Открытая"),
-        ("public", "Скрытая"),
+        ("private", "Скрытая"),
+        ("public", "Открытая"),
     ]
 
     title = models.CharField(max_length=255)

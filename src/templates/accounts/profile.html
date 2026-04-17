@@ -43,7 +43,7 @@
                 <div class="d-flex flex-wrap justify-content-center gap-2">
                     <a href="/accounts/profile/edit/" class="btn btn-primary">Редактировать профиль</a>
                     <a href="/works/my/" class="btn btn-outline-primary">Мои работы</a>
-                    {% if user.profile.is_admin %}
+                    {% if user.is_superuser or user.is_staff or user.profile.role == "admin" %}
                         <a href="/accounts/data-transfer/" class="btn btn-outline-secondary">Экспорт и импорт</a>
                     {% endif %}
 
