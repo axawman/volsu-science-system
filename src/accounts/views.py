@@ -1,3 +1,4 @@
+import django
 import json
 import shutil
 import tempfile
@@ -10,7 +11,6 @@ from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
-from django.core import management
 from django.core.management import call_command
 from django.db import connection, transaction
 from django.core.management.color import no_style
@@ -109,7 +109,7 @@ def _build_export_metadata():
         "exported_at": timezone.now().isoformat(),
         "fixture": FIXTURE_FILENAME,
         "media_dir": MEDIA_DIRNAME,
-        "django_version": management.get_version(),
+        "django_version": django.get_version(),
         "installed_apps": list(settings.INSTALLED_APPS),
     }
 
