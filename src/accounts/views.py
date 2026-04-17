@@ -31,6 +31,8 @@ MEDIA_DIRNAME = "media"
 EXCLUDED_DUMPDATA_MODELS = [
     "admin.logentry",
     "sessions.session",
+    "contenttypes",
+    "auth.permission",
 ]
 
 SEQUENCE_RESET_APPS = [
@@ -133,6 +135,8 @@ def export_data_view(request):
                 "dumpdata",
                 format="json",
                 indent=2,
+                natural_foreign=True,
+                natural_primary=True,
                 exclude=EXCLUDED_DUMPDATA_MODELS,
                 stdout=fixture_file,
             )
@@ -194,6 +198,7 @@ def _restore_database_from_fixture(fixture_path: Path):
     try:
         with transaction.atomic():
             call_command("flush", interactive=False, verbosity=0)
+            call_command("migrate", interactive=False, verbosity=0)
             call_command("loaddata", str(fixture_path), verbosity=0)
             _reset_sequences()
     finally:
