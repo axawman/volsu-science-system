@@ -30,7 +30,7 @@
                 <hr>
 
                 <div class="text-start mb-4">
-                    <p><strong>Роль:</strong> {{ profile.role }}</p>
+                    <p><strong>Роль:</strong> {{ user.profile.get_role_display }}</p>
 
                     <h3 class="h6 text-primary mt-4">О себе</h3>
                     {% if profile.bio %}
