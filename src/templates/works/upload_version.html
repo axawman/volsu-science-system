@@ -10,15 +10,19 @@
                 <h1 class="h3 text-primary mb-2">Добавить новую версию</h1>
                 <p class="text-secondary mb-1"><strong>Работа:</strong> {{ work.title }}</p>
                 <p class="text-secondary mb-4">
-                    Здесь загружается новый файл работы. После сохранения будет создана новая версия.
+                    Здесь загружаются файлы новой версии. После сохранения будет создана новая версия.
                 </p>
 
                 <form method="post" enctype="multipart/form-data">
                     {% csrf_token %}
 
                     <div class="mb-3">
-                        <label for="{{ form.file.id_for_label }}" class="form-label">Файл новой версии</label>
-                        {{ form.file }}
+                        <label for="{{ form.files.id_for_label }}" class="form-label">Файлы новой версии</label>
+                        {{ form.files }}
+                        <div class="form-text">Можно выбрать сразу несколько файлов.</div>
+                        {% if form.files.errors %}
+                            <div class="text-danger small mt-1">{{ form.files.errors }}</div>
+                        {% endif %}
                     </div>
 
                     <div class="mb-4">
