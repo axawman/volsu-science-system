@@ -166,28 +166,26 @@ def _ensure_work_visible_to_user(request, work):
 
 
 @login_required
-def download_work_archive(request, work_id):
+def download_version_archive(request, work_id, version_id):
     work = get_object_or_404(Work, id=work_id)
+    _ensure_work_visible_to_user(request, work)
 
-    if not user_can_manage_work(request.user, work) and work.visibility == "private":
-        return HttpResponse("Доступ запрещен")
+    version = get_object_or_404(
+        WorkVersion.objects.prefetch_related("files"),
+        id=version_id,
+        work=work,
+    )
 
     archive_buffer = BytesIO()
-    archive_name = f"{slugify(work.title) or 'work'}-files.zip"
+    archive_name = f"{slugify(work.title) or 'work'}-version-{version.version_number}.zip"
 
     with zipfile.ZipFile(archive_buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-        versions = work.versions.prefetch_related("files").all().order_by("version_number")
-        for version in versions:
-            version_folder = f"version_{version.version_number}"
-            for version_file in version.files.all():
-                version_file.file.open("rb")
-                try:
-                    archive.writestr(
-                        os.path.join(version_folder, version_file.filename),
-                        version_file.file.read(),
-                    )
-                finally:
-                    version_file.file.close()
+        for version_file in version.files.all():
+            version_file.file.open("rb")
+            try:
+                archive.writestr(version_file.filename, version_file.file.read())
+            finally:
+                version_file.file.close()
 
     archive_buffer.seek(0)
     return FileResponse(archive_buffer, as_attachment=True, filename=archive_name)

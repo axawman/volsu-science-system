@@ -99,9 +99,6 @@
                     </div>
 
                     <div class="d-flex gap-2 flex-wrap">
-                        <a href="{% url 'download_work_archive' work.id %}" class="btn btn-sm btn-primary">
-                            Скачать всё ZIP
-                        </a>
                         {% if request.user == work.author or request.user.profile.is_admin %}
                             <a href="/works/{{ work.id }}/upload-version/" class="btn btn-sm btn-outline-primary">
                                 + Новая версия
@@ -123,6 +120,11 @@
                                 {% if version.comment %}
                                     <div class="mt-2 small">{{ version.comment }}</div>
                                 {% endif %}
+                            </div>
+                            <div>
+                                <a href="{% url 'download_version_archive' work.id version.id %}" class="btn btn-sm btn-primary">
+                                    Скачать архив версии
+                                </a>
                             </div>
                         </div>
 
@@ -213,10 +215,6 @@
                             Добавить версию
                         </a>
                     {% endif %}
-
-                    <a href="{% url 'download_work_archive' work.id %}" class="btn btn-outline-primary">
-                        Скачать все файлы
-                    </a>
 
                     <a href="/works/" class="btn btn-outline-secondary">
                         Все работы

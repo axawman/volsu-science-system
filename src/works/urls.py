@@ -2,8 +2,8 @@ from django.urls import path
 from .views import (
     all_works,
     create_work,
+    download_version_archive,
     download_version_file,
-    download_work_archive,
     my_works,
     update_work,
     upload_version,
@@ -16,7 +16,11 @@ urlpatterns = [
     path("my/", my_works, name="my_works"),
     path("<int:work_id>/update/", update_work, name="update_work"),
     path("<int:work_id>/upload-version/", upload_version, name="upload_version"),
-    path("<int:work_id>/download-archive/", download_work_archive, name="download_work_archive"),
+    path(
+        "<int:work_id>/versions/<int:version_id>/download-archive/",
+        download_version_archive,
+        name="download_version_archive",
+    ),
     path(
         "<int:work_id>/versions/<int:version_id>/files/<int:file_id>/download/",
         download_version_file,
