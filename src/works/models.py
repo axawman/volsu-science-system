@@ -2,6 +2,20 @@ from django.db import models
 from django.contrib.auth.models import User
 
 
+class WorkSection(models.Model):
+    name = models.CharField(max_length=150, unique=True)
+    description = models.TextField(blank=True)
+    sort_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["sort_order", "name"]
+        verbose_name = "Раздел работ"
+        verbose_name_plural = "Разделы работ"
+
+    def __str__(self):
+        return self.name
+
+
 class Work(models.Model):
     STATUS_CHOICES = [
         ("draft", "Черновик"),
@@ -17,6 +31,14 @@ class Work(models.Model):
     description = models.TextField(blank=True)
     content = models.TextField(blank=True)
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name="works")
+    section = models.ForeignKey(
+        WorkSection,
+        on_delete=models.SET_NULL,
+        related_name="works",
+        null=True,
+        blank=True,
+        verbose_name="Раздел",
+    )
 
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="draft")
     visibility = models.CharField(max_length=20, choices=VISIBILITY_CHOICES, default="private")

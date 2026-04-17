@@ -15,6 +15,7 @@
                     </a>
                     <div class="meta">
                         Автор: {{ work.author.username }}<br>
+                        {% if work.section %}Раздел: {{ work.section.name }}<br>{% endif %}
                         Статус: {{ work.get_status_display}}<br>
                         Создано: {{ work.created_at|date:"d.m.Y H:i" }}
                     </div>

@@ -48,7 +48,7 @@ def create_work(request):
 
 @login_required
 def update_work(request, work_id):
-    work = get_object_or_404(Work, id=work_id)
+    work = get_object_or_404(Work.objects.select_related("author", "section"), id=work_id)
 
     if not user_can_manage_work(request.user, work):
         return HttpResponse("Доступ запрещен")
@@ -107,13 +107,13 @@ def upload_version(request, work_id):
 
 @login_required
 def my_works(request):
-    works = Work.objects.filter(author=request.user).order_by("-created_at")
+    works = Work.objects.filter(author=request.user).select_related("section").order_by("-created_at")
     return render(request, "works/my_works.html", {"works": works})
 
 
 @login_required
 def all_works(request):
-    works = Work.objects.select_related("author").order_by("-created_at")
+    works = Work.objects.select_related("author", "section").order_by("-created_at")
     return render(request, "works/all_works.html", {"works": works})
 
 

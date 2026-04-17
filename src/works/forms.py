@@ -36,11 +36,12 @@ class WorkCreateForm(forms.ModelForm):
 
     class Meta:
         model = Work
-        fields = ["title", "description", "content", "visibility"]
+        fields = ["title", "description", "content", "section", "visibility"]
         widgets = {
             "title": forms.TextInput(attrs={"class": "form-control"}),
             "description": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
             "content": forms.Textarea(attrs={"class": "form-control", "rows": 12}),
+            "section": forms.Select(attrs={"class": "form-select"}),
             "visibility": forms.Select(attrs={"class": "form-select"}),
         }
 
@@ -48,11 +49,12 @@ class WorkCreateForm(forms.ModelForm):
 class WorkEditForm(forms.ModelForm):
     class Meta:
         model = Work
-        fields = ["title", "description", "content", "visibility"]
+        fields = ["title", "description", "content", "section", "visibility"]
         widgets = {
             "title": forms.TextInput(attrs={"class": "form-control"}),
             "description": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
             "content": forms.Textarea(attrs={"class": "form-control", "rows": 12}),
+            "section": forms.Select(attrs={"class": "form-select"}),
             "visibility": forms.Select(attrs={"class": "form-select"}),
         }
 

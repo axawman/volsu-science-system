@@ -20,6 +20,7 @@
                                     {{ work.title }}
                                 </a>
                                 <div class="small text-secondary mt-1">
+                                    {% if work.section %}Раздел: {{ work.section.name }}<br>{% endif %}
                                     Создано: {{ work.created_at }}<br>
                                     Обновлено: {{ work.updated_at }}
                                 </div>

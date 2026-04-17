@@ -1,12 +1,19 @@
 from django.contrib import admin
-from .models import Work, WorkVersion
+from .models import Work, WorkSection, WorkVersion
+
+
+@admin.register(WorkSection)
+class WorkSectionAdmin(admin.ModelAdmin):
+    list_display = ("name", "sort_order")
+    search_fields = ("name", "description")
+    ordering = ("sort_order", "name")
 
 
 @admin.register(Work)
 class WorkAdmin(admin.ModelAdmin):
-    list_display = ("title", "author", "status", "visibility", "created_at")
-    list_filter = ("status", "visibility")
-    search_fields = ("title", "description", "author__username")
+    list_display = ("title", "author", "section", "status", "visibility", "created_at")
+    list_filter = ("section", "status", "visibility")
+    search_fields = ("title", "description", "author__username", "section__name")
 
 
 @admin.register(WorkVersion)
