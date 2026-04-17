@@ -8,9 +8,9 @@
         <div class="card-soft p-4 h-100">
             <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-3">
                 <div>
-                    <h1 class="section-title mb-2" style="font-size: 1.4rem;">Научные работы</h1>
+                    <h1 class="section-title mb-2" style="font-size: 1.4rem;">Разделы научных работ</h1>
                     <p class="text-soft mb-0">
-                        Последние добавленные работы, материалы и изменения по исследованиям.
+                        На главной странице отображаются существующие разделы и количество работ в каждом из них.
                     </p>
                 </div>
 
@@ -20,25 +20,22 @@
                 </div>
             </div>
 
-            {% for work in latest_works %}
+            {% for section in sections %}
                 <div class="mini-list-item">
-                    <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
+                    <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
                         <div>
-                            <a href="/works/{{ work.id }}/" class="mini-list-title fs-5">
-                                {{ work.title }}
-                            </a>
+                            <a href="{% url 'section_detail' section.id %}" class="mini-list-title fs-5 d-inline-block">{{ section.name }}</a>
                             <div class="meta">
-                                Автор: {{ work.author.username }}<br>
-                                Статус: {{ work.get_status_display }}<br>
-                                Создано: {{ work.created_at|date:"d.m.Y H:i" }}
+                                {% if section.description %}{{ section.description }}<br>{% endif %}
+                                Работ в разделе: {{ section.work_count }}
                             </div>
                         </div>
 
-                        <span class="badge badge-soft">{{ work.visibility_display }}</span>
+                        <span class="badge badge-soft">{{ section.work_count }}</span>
                     </div>
                 </div>
             {% empty %}
-                <p class="text-soft mb-0">Пока нет добавленных работ.</p>
+                <p class="text-soft mb-0">Пока нет созданных разделов.</p>
             {% endfor %}
         </div>
     </div>

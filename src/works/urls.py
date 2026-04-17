@@ -8,12 +8,14 @@ from .views import (
     update_work,
     upload_version,
     work_detail,
+    section_detail,
 )
 
 urlpatterns = [
     path("", all_works, name="all_works"),
     path("create/", create_work, name="create_work"),
     path("my/", my_works, name="my_works"),
+    path("sections/<int:section_id>/", section_detail, name="section_detail"),
     path("<int:work_id>/update/", update_work, name="update_work"),
     path("<int:work_id>/upload-version/", upload_version, name="upload_version"),
     path(

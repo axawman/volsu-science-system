@@ -8,7 +8,8 @@
         <div class="card shadow-sm border-0 rounded-4">
             <div class="card-body p-4">
                 <h1 class="h3 text-primary mb-2">Редактировать работу</h1>
-                <p class="text-secondary mb-4">{{ work.title }}</p>
+                <p class="text-secondary mb-2">{{ work.title }}</p>
+                <div class="mb-4"><span class="badge text-bg-secondary">Текущий статус: {{ work.get_status_display }}</span></div>
 
                 <form method="post">
                     {% csrf_token %}
@@ -41,8 +42,9 @@
                         {{ form.visibility }}
                     </div>
 
-                    <div class="d-flex gap-2">
-                        <button type="submit" class="btn btn-primary">Сохранить изменения</button>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button type="submit" name="save_draft" value="1" class="btn btn-primary">Сохранить изменения</button>
+                        {% if work.status != "published" %}<button type="submit" name="publish" value="1" class="btn btn-success">Опубликовать</button>{% endif %}
                         <a href="/works/{{ work.id }}/" class="btn btn-outline-primary">К работе</a>
                     </div>
                 </form>

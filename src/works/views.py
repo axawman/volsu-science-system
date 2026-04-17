@@ -2,13 +2,15 @@ import os
 import zipfile
 from io import BytesIO
 
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db.models import Q
 from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils.text import slugify
 
 from .forms import WorkCreateForm, WorkEditForm, WorkVersionForm
-from .models import Work, WorkVersion, WorkVersionFile
+from .models import Work, WorkSection, WorkVersion, WorkVersionFile
 from discussions.forms import WorkCommentForm
 
 
@@ -58,6 +60,16 @@ def update_work(request, work_id):
         if form.is_valid():
             updated_work = form.save(commit=False)
             updated_work.author = work.author
+
+            if "publish" in request.POST:
+                updated_work.status = "published"
+                messages.success(request, "Работа опубликована")
+            elif "save_draft" in request.POST and updated_work.status != "published":
+                updated_work.status = "draft"
+                messages.success(request, "Изменения сохранены")
+            else:
+                messages.success(request, "Изменения сохранены")
+
             updated_work.save()
             return redirect("work_detail", work_id=work.id)
     else:
@@ -113,26 +125,49 @@ def my_works(request):
 
 @login_required
 def all_works(request):
-    works = Work.objects.select_related("author", "section").order_by("-created_at")
+    works = _visible_works_queryset_for_user(request.user)
     return render(request, "works/all_works.html", {"works": works})
 
 
+def _visible_works_queryset_for_user(user):
+    works = Work.objects.select_related("author", "section")
+
+    if user.is_authenticated and user.profile.is_admin():
+        return works.order_by("-created_at")
+    if user.is_authenticated:
+        return works.filter(
+            Q(status="published", visibility="public") | Q(author=user)
+        ).distinct().order_by("-created_at")
+    return works.filter(status="published", visibility="public").order_by("-created_at")
+
+
+def section_detail(request, section_id):
+    section = get_object_or_404(WorkSection, id=section_id)
+    works = _visible_works_queryset_for_user(request.user).filter(section=section)
+
+    return render(request, "works/section_detail.html", {
+        "section": section,
+        "works": works,
+    })
+
+
 def work_detail(request, work_id):
-    work = get_object_or_404(Work, id=work_id)
+    work = get_object_or_404(Work.objects.select_related("author", "section", "author__profile"), id=work_id)
 
-    if work.visibility == "private":
-        if not request.user.is_authenticated:
-            return HttpResponse("Доступ запрещен")
+    is_owner_or_admin = request.user.is_authenticated and (
+        request.user == work.author or request.user.profile.is_admin()
+    )
+    is_publicly_available = work.status == "published" and work.visibility == "public"
 
-        if request.user != work.author and not request.user.profile.is_admin():
-            return HttpResponse("Доступ запрещен")
+    if not is_publicly_available and not is_owner_or_admin:
+        return HttpResponse("Доступ запрещен")
 
     if request.method == "POST":
         if not request.user.is_authenticated:
             return redirect("login")
 
-        if work.visibility != "public":
-            return HttpResponse("Комментарии разрешены только для публичных работ")
+        if not is_publicly_available:
+            return HttpResponse("Комментарии разрешены только для опубликованных открытых работ")
 
         comment_form = WorkCommentForm(request.POST)
         if comment_form.is_valid():
@@ -150,9 +185,11 @@ def work_detail(request, work_id):
 
     return render(request, "works/work_detail.html", {
         "work": work,
+        "is_publicly_available": is_publicly_available,
         "versions": versions,
         "comments": comments,
         "comment_form": comment_form,
+        "is_publicly_available": is_publicly_available,
         "total_files": total_files,
     })
 
