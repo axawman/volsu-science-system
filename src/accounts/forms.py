@@ -30,6 +30,7 @@ class RegisterForm(UserCreationForm):
         widget=forms.PasswordInput(attrs={"class": "form-control"})
     )
 
+
 class ProfileEditForm(forms.ModelForm):
     class Meta:
         model = Profile
@@ -39,3 +40,10 @@ class ProfileEditForm(forms.ModelForm):
             "bio": forms.Textarea(attrs={"class": "form-control", "rows": 5}),
             "photo": forms.ClearableFileInput(attrs={"class": "form-control"}),
         }
+
+
+class DataImportForm(forms.Form):
+    archive = forms.FileField(
+        label="Архив с данными",
+        widget=forms.ClearableFileInput(attrs={"class": "form-control", "accept": ".zip"})
+    )

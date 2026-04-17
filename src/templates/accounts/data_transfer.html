@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Экспорт и импорт данных{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-xl-9">
+        <div class="card card-soft mb-4">
+            <div class="card-body p-4">
+                <h1 class="h3 text-primary mb-3">Перенос данных</h1>
+                <p class="text-secondary mb-0">Здесь администратор может выгрузить все данные проекта в один zip-архив и затем восстановить их на другом сервере. В архив входят пользователи, профили, работы, версии, комментарии, мероприятия, встречи и все медиафайлы.</p>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-lg-6">
+                <div class="card card-soft h-100">
+                    <div class="card-body p-4">
+                        <h2 class="h5 text-primary mb-3">Экспорт</h2>
+                        <p class="text-secondary">Скачивает резервную копию в одном архиве. Этот файл можно перенести на другой сервер и импортировать там.</p>
+                        <a href="{% url 'export_data' %}" class="btn btn-primary">Скачать архив</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6">
+                <div class="card card-soft h-100 border border-danger-subtle">
+                    <div class="card-body p-4">
+                        <h2 class="h5 text-danger mb-3">Импорт</h2>
+                        <p class="text-secondary">Импорт полностью заменяет текущие данные и медиафайлы данными из архива. Перед импортом лучше сделать свежий экспорт.</p>
+
+                        <form method="post" action="{% url 'import_data' %}" enctype="multipart/form-data">
+                            {% csrf_token %}
+                            <div class="mb-3">
+                                {{ form.archive.label_tag }}
+                                {{ form.archive }}
+                                {% if form.archive.errors %}
+                                    <div class="text-danger small mt-2">{{ form.archive.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <button type="submit" class="btn btn-danger">Импортировать архив</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
