@@ -44,6 +44,9 @@ jobs:
           # ВАЖНО: Укажи здесь путь к папке, в которую ты клонировал проект на Шаге 2
           cd /home/axawys/volsu-science-system
           
+          # Разрешаем Git работать с этой папкой
+          git config --global --add safe.directory /home/axawys/volsu-science-system
+
           # Скачиваем свежий код
           git pull origin main
           
