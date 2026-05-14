@@ -40,6 +40,7 @@ jobs:
         host: ${{ secrets.VPS_HOST }}
         username: ${{ secrets.VPS_USER }}
         key: ${{ secrets.VPS_SSH_KEY }}
+        command_timeout: 45m
         script: |
           # ВАЖНО: Укажи здесь путь к папке, в которую ты клонировал проект на Шаге 2
           cd /home/axawys/volsu-science-system
