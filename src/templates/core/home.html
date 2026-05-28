@@ -3,14 +3,14 @@
 {% block title %}Главная — Система регистрации научной деятельности ВолГУ{% endblock %}
 
 {% block content %}
-<div class="row g-4 mb-4">
+<div class="row g-4">
     <div class="col-lg-8">
-        <div class="card-soft p-4 h-100">
+        <div class="card-soft p-4 p-lg-5 h-100">
             <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-3">
                 <div>
-                    <h1 class="section-title mb-2" style="font-size: 1.4rem;">Разделы научных работ</h1>
+                    <h1 class="section-title home-title mb-2">Научные работы</h1>
                     <p class="text-soft mb-0">
-                        На главной странице отображаются существующие разделы и количество работ в каждом из них.
+                        Разделы, публикации и черновики собраны по направлениям научной деятельности.
                     </p>
                 </div>
 
@@ -20,6 +20,7 @@
                 </div>
             </div>
 
+            <div class="section-list">
             {% for section in sections %}
                 <div class="mini-list-item">
                     <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
@@ -37,23 +38,24 @@
             {% empty %}
                 <p class="text-soft mb-0">Пока нет созданных разделов.</p>
             {% endfor %}
+            </div>
         </div>
     </div>
 
     <div class="col-lg-4">
-        <div class="card-soft p-3">
+        <div class="card-soft p-3 calendar-card">
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <h2 class="section-title mb-0">Календарь</h2>
-                <div class="small text-soft">
-                    <span class="calendar-dot meeting me-1"></span> встречи
-                    <span class="calendar-dot event ms-2 me-1"></span> события
+                <div class="calendar-legend text-soft">
+                    <span><span class="calendar-dot meeting me-1"></span>встреча</span>
+                    <span><span class="calendar-dot event me-1"></span>событие</span>
                 </div>
             </div>
 
             <div class="d-flex justify-content-between align-items-center mb-2">
-                <button class="btn btn-sm btn-outline-primary rounded-pill px-3" id="prev-month">←</button>
+                <button class="btn btn-sm btn-outline-primary calendar-nav-btn" id="prev-month" aria-label="Предыдущий месяц">‹</button>
                 <div class="fw-semibold text-primary small" id="calendar-title"></div>
-                <button class="btn btn-sm btn-outline-primary rounded-pill px-3" id="next-month">→</button>
+                <button class="btn btn-sm btn-outline-primary calendar-nav-btn" id="next-month" aria-label="Следующий месяц">›</button>
             </div>
 
             <div class="calendar-grid compact-calendar-head mb-2">
@@ -70,99 +72,110 @@
         </div>
 
         <div class="card-soft p-4 mt-4">
-            <h2 class="section-title mb-3">Ближайшая активность</h2>
+            <h2 class="section-title mb-3">Ближайшие активности</h2>
 
-            {% for event in upcoming_events|slice:":2" %}
-                <div class="mini-list-item">
-                    <div class="fw-semibold">{{ event.title }}</div>
-                    <div class="meta">
-                        Событие: {{ event.event_date|date:"d.m.Y H:i" }}<br>
-                        {{ event.location }}
+            {% for item in upcoming_activity %}
+                <div class="mini-list-item activity-item">
+                    <div class="d-flex align-items-start gap-3">
+                        <span class="activity-dot {{ item.type }}"></span>
+                        <div>
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                <span class="badge badge-soft">{{ item.kind }}</span>
+                                <span class="meta m-0">{{ item.date|date:"d.m.Y H:i" }}</span>
+                            </div>
+                            <div class="fw-semibold mt-1">{{ item.title }}</div>
+                            <div class="meta">
+                                {% if item.end_date %}До {{ item.end_date|date:"d.m.Y H:i" }}<br>{% endif %}
+                                {% if item.location %}Место: {{ item.location }}<br>{% endif %}
+                                Добавил: {{ item.created_by.username }}
+                            </div>
+                        </div>
                     </div>
                 </div>
             {% empty %}
-            {% endfor %}
-
-            {% for meeting in upcoming_meetings|slice:":2" %}
-                <div class="mini-list-item">
-                    <div class="fw-semibold">{{ meeting.title }}</div>
-                    <div class="meta">
-                        Встреча: {{ meeting.start_at|date:"d.m.Y H:i" }}<br>
-                        {{ meeting.location }}
-                    </div>
-                </div>
-            {% empty %}
-            {% endfor %}
-
-            {% if not upcoming_events and not upcoming_meetings %}
                 <p class="text-soft mb-0">Ближайшей активности пока нет.</p>
-            {% endif %}
-        </div>
-    </div>
-</div>
-
-<div class="row g-4">
-    <div class="col-lg-6">
-        <div class="card-soft p-4 h-100">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h2 class="section-title mb-0">Ближайшие встречи</h2>
-            </div>
-
-            {% for meeting in upcoming_meetings %}
-                <div class="mini-list-item">
-                    <div class="fw-semibold">{{ meeting.title }}</div>
-                    <div class="meta">
-                        {{ meeting.start_at|date:"d.m.Y H:i" }} – {{ meeting.end_at|date:"d.m.Y H:i" }}<br>
-                        Место: {{ meeting.location }}<br>
-                        Организатор: {{ meeting.created_by.username }}
-                    </div>
-                </div>
-            {% empty %}
-                <p class="text-soft mb-0">Ближайших встреч нет.</p>
-            {% endfor %}
-        </div>
-    </div>
-
-    <div class="col-lg-6">
-        <div class="card-soft p-4 h-100">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h2 class="section-title mb-0">Предстоящие события</h2>
-            </div>
-
-            {% for event in upcoming_events %}
-                <div class="mini-list-item">
-                    <div class="fw-semibold">{{ event.title }}</div>
-                    <div class="meta">
-                        Дата: {{ event.event_date|date:"d.m.Y H:i" }}<br>
-                        Место: {{ event.location }}<br>
-                        Добавил: {{ event.created_by.username }}
-                    </div>
-                </div>
-            {% empty %}
-                <p class="text-soft mb-0">Предстоящих событий нет.</p>
             {% endfor %}
         </div>
     </div>
 </div>
 
 <style>
+    .home-title {
+        font-size: clamp(1.35rem, 2vw, 1.8rem);
+    }
+
+    .section-list {
+        margin-top: 0.5rem;
+    }
+
+    .calendar-card {
+        position: sticky;
+        top: 1rem;
+    }
+
+    .calendar-legend {
+        display: flex;
+        gap: 0.65rem;
+        font-size: 0.72rem;
+        line-height: 1;
+        white-space: nowrap;
+    }
+
+    .calendar-nav-btn {
+        width: 2rem;
+        height: 2rem;
+        border-radius: 50%;
+        padding: 0;
+        font-size: 1.2rem;
+        line-height: 1;
+    }
+
     .compact-calendar .calendar-day {
-        min-height: 52px;
-        padding: 0.35rem;
-        border-radius: 0.7rem;
+        min-height: 36px;
+        padding: 0.28rem;
+        border-radius: 0.45rem;
     }
 
     .compact-calendar .calendar-day-number {
-        font-size: 0.8rem;
-        margin-bottom: 0.15rem;
+        font-size: 0.76rem;
+        margin-bottom: 0.05rem;
     }
 
     .compact-calendar .calendar-events {
-        gap: 3px;
+        gap: 2px;
+        margin-top: 0;
     }
 
     .compact-calendar-head .calendar-head {
-        font-size: 0.76rem;
+        font-size: 0.7rem;
+        padding-bottom: 0;
+    }
+
+    .activity-item .badge {
+        font-size: 0.72rem;
+        font-weight: 600;
+    }
+
+    .activity-dot {
+        width: 0.6rem;
+        height: 0.6rem;
+        border-radius: 50%;
+        flex: 0 0 auto;
+        margin-top: 0.45rem;
+    }
+
+    .activity-dot.meeting {
+        background: var(--primary-soft);
+    }
+
+    .activity-dot.event {
+        background: var(--dot-muted);
+    }
+
+    @media (max-width: 991px) {
+        .calendar-card {
+            position: static;
+        }
     }
 </style>
 
@@ -215,7 +228,10 @@ function renderCalendar(date) {
         const dayNum = prevMonthLastDay - i;
         const cell = document.createElement("div");
         cell.className = "calendar-day other-month";
-        cell.innerHTML = `<div class="calendar-day-number">${dayNum}</div>`;
+        const number = document.createElement("div");
+        number.className = "calendar-day-number";
+        number.textContent = dayNum;
+        cell.appendChild(number);
         daysEl.appendChild(cell);
     }
 
@@ -231,14 +247,21 @@ function renderCalendar(date) {
 
         const dayEvents = calendarItems.filter(item => item.date === dateStr);
 
-        const eventsHtml = dayEvents.map(item => `
-            <span class="calendar-dot ${item.type}" title="${item.title}"></span>
-        `).join("");
+        const number = document.createElement("div");
+        number.className = "calendar-day-number";
+        number.textContent = day;
 
-        cell.innerHTML = `
-            <div class="calendar-day-number">${day}</div>
-            <div class="calendar-events">${eventsHtml}</div>
-        `;
+        const events = document.createElement("div");
+        events.className = "calendar-events";
+
+        dayEvents.forEach((item) => {
+            const dot = document.createElement("span");
+            dot.className = `calendar-dot ${item.type}`;
+            dot.title = item.title;
+            events.appendChild(dot);
+        });
+
+        cell.append(number, events);
 
         daysEl.appendChild(cell);
     }
@@ -249,7 +272,10 @@ function renderCalendar(date) {
     for (let i = 1; i <= remaining; i++) {
         const cell = document.createElement("div");
         cell.className = "calendar-day other-month";
-        cell.innerHTML = `<div class="calendar-day-number">${i}</div>`;
+        const number = document.createElement("div");
+        number.className = "calendar-day-number";
+        number.textContent = i;
+        cell.appendChild(number);
         daysEl.appendChild(cell);
     }
 }

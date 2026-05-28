@@ -21,6 +21,31 @@ def home(request):
     ).order_by("sort_order", "name")
     upcoming_meetings = Meeting.objects.filter(start_at__gte=now).order_by("start_at")[:5]
     upcoming_events = Event.objects.filter(event_date__gte=now).order_by("event_date")[:5]
+    upcoming_activity = []
+
+    for meeting in upcoming_meetings:
+        upcoming_activity.append({
+            "title": meeting.title,
+            "kind": "Встреча",
+            "type": "meeting",
+            "date": meeting.start_at,
+            "end_date": meeting.end_at,
+            "location": meeting.location,
+            "created_by": meeting.created_by,
+        })
+
+    for event in upcoming_events:
+        upcoming_activity.append({
+            "title": event.title,
+            "kind": "Событие",
+            "type": "event",
+            "date": event.event_date,
+            "end_date": None,
+            "location": event.location,
+            "created_by": event.created_by,
+        })
+
+    upcoming_activity = sorted(upcoming_activity, key=lambda item: item["date"])[:6]
 
     calendar_items = []
 
@@ -42,6 +67,7 @@ def home(request):
         "sections": sections,
         "upcoming_meetings": upcoming_meetings,
         "upcoming_events": upcoming_events,
+        "upcoming_activity": upcoming_activity,
         "calendar_items": calendar_items,
         "today": now.date().isoformat(),
     }
