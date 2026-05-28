@@ -9,16 +9,16 @@ class Profile(models.Model):
         ('admin', 'Администратор'),
     ]
 
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='student')
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile", verbose_name="Пользователь")
+    role = models.CharField("Роль", max_length=20, choices=ROLE_CHOICES, default="student")
+    full_name = models.CharField("ФИО", max_length=255)
+    bio = models.TextField("О себе", blank=True)
+    photo = models.ImageField("Фотография", upload_to="profile_photos/", blank=True, null=True)
+    created_at = models.DateTimeField("Дата создания", auto_now_add=True)
 
-    full_name = models.CharField(max_length=255)
-    bio = models.TextField(blank=True)
-    photo = models.ImageField(upload_to="profile_photos/", blank=True, null=True)
-
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="student")
-
-    created_at = models.DateTimeField(auto_now_add=True)
+    class Meta:
+        verbose_name = "Профиль"
+        verbose_name_plural = "Профили"
 
     def __str__(self):
         return f"{self.user.username} ({self.role})"

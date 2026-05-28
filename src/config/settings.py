@@ -23,12 +23,12 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
 
-    "core",
+    "core.apps.CoreConfig",
     "accounts.apps.AccountsConfig",
-    "works",
-    "discussions",
-    "meetings",
-    "events",
+    "works.apps.WorksConfig",
+    "discussions.apps.DiscussionsConfig",
+    "meetings.apps.MeetingsConfig",
+    "events.apps.EventsConfig",
 ]
 
 MIDDLEWARE = [
