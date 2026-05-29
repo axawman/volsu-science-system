@@ -62,5 +62,5 @@ jobs:
           
           # Пересобираем и перезапускаем контейнеры без остановки сайта (-d)
           docker compose up -d --build --force-recreate
-          docker compose exec -T web sh -c 'grep -q "reply-toggle" /app/src/templates/works/_comment_thread.html && python manage.py showmigrations discussions'
+          docker compose exec -T web sh -c 'cd /app/src && grep -q "reply-toggle" templates/works/_comment_thread.html && python manage.py showmigrations discussions'
           docker compose ps
