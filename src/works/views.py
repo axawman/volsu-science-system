@@ -30,19 +30,23 @@ def create_work(request):
             work.author = request.user
             work.save()
 
-            version = WorkVersion.objects.create(
-                work=work,
-                version_number=1,
-                comment=form.cleaned_data.get("comment", ""),
-                uploaded_by=request.user,
-            )
+            uploaded_files = form.cleaned_data["files"]
+            version_comment = form.cleaned_data.get("comment", "")
 
-            for uploaded_file in form.cleaned_data["files"]:
-                WorkVersionFile.objects.create(
-                    version=version,
-                    file=uploaded_file,
-                    original_name=uploaded_file.name,
+            if uploaded_files or version_comment:
+                version = WorkVersion.objects.create(
+                    work=work,
+                    version_number=1,
+                    comment=version_comment,
+                    uploaded_by=request.user,
                 )
+
+                for uploaded_file in uploaded_files:
+                    WorkVersionFile.objects.create(
+                        version=version,
+                        file=uploaded_file,
+                        original_name=uploaded_file.name,
+                    )
 
             return redirect("my_works")
     else:

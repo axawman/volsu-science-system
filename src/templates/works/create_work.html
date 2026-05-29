@@ -18,12 +18,7 @@
                     </div>
 
                     <div class="mb-3">
-                        <label for="{{ form.description.id_for_label }}" class="form-label">Описание</label>
-                        {{ form.description }}
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="{{ form.content.id_for_label }}" class="form-label">Содержимое работы</label>
+                        <label for="{{ form.content.id_for_label }}" class="form-label">Описание работы</label>
                         {{ form.content }}
                         <div class="form-text">
                             Можно использовать LaTeX-формулы, например: \( a^2 + b^2 = c^2 \) или $$\int_0^1 x^2 dx$$
@@ -41,9 +36,9 @@
                     </div>
 
                     <div class="mb-3">
-                        <label for="{{ form.files.id_for_label }}" class="form-label">Файлы первой версии</label>
+                        <label for="{{ form.files.id_for_label }}" class="form-label">Файлы</label>
                         {{ form.files }}
-                        <div class="form-text">Можно выбрать сразу несколько файлов.</div>
+                        <div class="form-text">Можно выбрать сразу несколько файлов или создать работу без файлов.</div>
                         {% if form.files.errors %}
                             <div class="text-danger small mt-1">{{ form.files.errors }}</div>
                         {% endif %}

@@ -25,9 +25,9 @@ class MultipleFileField(forms.FileField):
 
 class WorkCreateForm(forms.ModelForm):
     files = MultipleFileField(
-        required=True,
+        required=False,
         widget=MultipleFileInput(attrs={"class": "form-control", "multiple": True}),
-        label="Файлы первой версии",
+        label="Файлы",
     )
     comment = forms.CharField(
         required=False,
@@ -36,10 +36,9 @@ class WorkCreateForm(forms.ModelForm):
 
     class Meta:
         model = Work
-        fields = ["title", "description", "content", "section", "visibility"]
+        fields = ["title", "content", "section", "visibility"]
         widgets = {
             "title": forms.TextInput(attrs={"class": "form-control"}),
-            "description": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
             "content": forms.Textarea(attrs={"class": "form-control", "rows": 12}),
             "section": forms.Select(attrs={"class": "form-select"}),
             "visibility": forms.Select(attrs={"class": "form-select"}),
@@ -49,10 +48,9 @@ class WorkCreateForm(forms.ModelForm):
 class WorkEditForm(forms.ModelForm):
     class Meta:
         model = Work
-        fields = ["title", "description", "content", "section", "visibility"]
+        fields = ["title", "content", "section", "visibility"]
         widgets = {
             "title": forms.TextInput(attrs={"class": "form-control"}),
-            "description": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
             "content": forms.Textarea(attrs={"class": "form-control", "rows": 12}),
             "section": forms.Select(attrs={"class": "form-select"}),
             "visibility": forms.Select(attrs={"class": "form-select"}),

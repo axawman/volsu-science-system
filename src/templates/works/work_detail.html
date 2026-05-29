@@ -69,22 +69,15 @@
                     </div>
                 </div>
 
-                {% if work.description %}
-                    <div class="mb-4">
-                        <h2 class="h6 text-primary">Краткое описание</h2>
-                        <p class="mb-0">{{ work.description }}</p>
-                    </div>
-                {% endif %}
-
                 <div>
-                    <h2 class="h5 text-primary mb-3">Содержимое работы</h2>
+                    <h2 class="h5 text-primary mb-3">Описание работы</h2>
 
                     {% if work.content %}
                         <div class="border rounded-3 p-3 bg-light-subtle">
                             <div id="work-content-markdown" class="markdown-body"></div>
                         </div>
                     {% else %}
-                        <p class="text-secondary mb-0">Содержимое работы пока не добавлено.</p>
+                        <p class="text-secondary mb-0">Описание работы пока не добавлено.</p>
                     {% endif %}
                 </div>
 
