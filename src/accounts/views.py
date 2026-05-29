@@ -3,6 +3,7 @@ import json
 import secrets
 import shutil
 import re
+import smtplib
 import tempfile
 import zipfile
 from datetime import datetime, timedelta
@@ -14,7 +15,7 @@ from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
-from django.core.mail import send_mail
+from django.core.mail import BadHeaderError, send_mail
 from django.core.management import call_command
 from django.db import connection, transaction
 from django.core.management.color import no_style
@@ -107,13 +108,16 @@ def send_registration_code(request):
     }
     request.session.modified = True
 
-    send_mail(
-        subject="Код подтверждения регистрации ВолГУ",
-        message=f"Ваш код подтверждения: {code}\n\nКод действует {REGISTRATION_CODE_TTL_MINUTES} минут.",
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=[email],
-        fail_silently=False,
-    )
+    try:
+        send_mail(
+            subject="Код подтверждения регистрации ВолГУ",
+            message=f"Ваш код подтверждения: {code}\n\nКод действует {REGISTRATION_CODE_TTL_MINUTES} минут.",
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[email],
+            fail_silently=False,
+        )
+    except (BadHeaderError, OSError, smtplib.SMTPException, TimeoutError) as error:
+        return JsonResponse({"error": f"Не удалось отправить код: {error}"}, status=502)
 
     return JsonResponse({"message": "Код отправлен на почту."})
 

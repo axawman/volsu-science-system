@@ -74,6 +74,8 @@ EMAIL_PORT=587
 EMAIL_HOST_USER=noreply@example.com
 EMAIL_HOST_PASSWORD=change-me
 EMAIL_USE_TLS=1
+EMAIL_USE_SSL=0
+EMAIL_TIMEOUT=10
 DEFAULT_FROM_EMAIL=noreply@example.com
 
 POSTGRES_DB=science_registry
