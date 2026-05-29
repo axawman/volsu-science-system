@@ -1,7 +1,37 @@
 from django import forms
+from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
 from .models import Profile
+
+
+class EmailOrUsernameAuthenticationForm(AuthenticationForm):
+    username = forms.CharField(
+        label="Email",
+        widget=forms.TextInput(attrs={
+            "class": "form-control",
+            "autocomplete": "email",
+            "placeholder": "name@volsu.ru",
+        }),
+    )
+    password = forms.CharField(
+        label="Пароль",
+        widget=forms.PasswordInput(attrs={
+            "class": "form-control",
+            "autocomplete": "current-password",
+        }),
+    )
+
+    def clean(self):
+        login_value = self.cleaned_data.get("username", "").strip()
+
+        if "@" in login_value:
+            user = User.objects.filter(email__iexact=login_value).first()
+
+            if user:
+                self.cleaned_data["username"] = user.get_username()
+
+        return super().clean()
 
 
 class RegisterForm(UserCreationForm):
