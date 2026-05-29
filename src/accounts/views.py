@@ -1,8 +1,11 @@
 import django
 import json
+import secrets
 import shutil
+import re
 import tempfile
 import zipfile
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from django.apps import apps
@@ -11,12 +14,14 @@ from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from django.core.mail import send_mail
 from django.core.management import call_command
 from django.db import connection, transaction
 from django.core.management.color import no_style
-from django.http import FileResponse
+from django.http import FileResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 
 from .decorators import admin_required
 from .forms import DataImportForm, ProfileEditForm, RegisterForm
@@ -27,6 +32,8 @@ BACKUP_FILENAME_PREFIX = "science_registry_backup"
 FIXTURE_FILENAME = "data.json"
 METADATA_FILENAME = "metadata.json"
 MEDIA_DIRNAME = "media"
+REGISTRATION_CODE_SESSION_KEY = "registration_email_code"
+REGISTRATION_CODE_TTL_MINUTES = 10
 
 EXCLUDED_DUMPDATA_MODELS = [
     "admin.logentry",
@@ -46,6 +53,84 @@ SEQUENCE_RESET_APPS = [
 ]
 
 
+def _normalize_email(email):
+    return (email or "").strip().lower()
+
+
+def _make_username_from_email(email):
+    base_username = re.sub(r"[^a-zA-Z0-9_]", "_", email.split("@", 1)[0]).strip("_") or "user"
+    username = base_username
+    suffix = 1
+
+    while User.objects.filter(username=username).exists():
+        suffix += 1
+        username = f"{base_username}_{suffix}"
+
+    return username
+
+
+def _registration_code_is_valid(request, email, code):
+    verification = request.session.get(REGISTRATION_CODE_SESSION_KEY) or {}
+    expires_at = verification.get("expires_at")
+
+    if not expires_at:
+        return False
+
+    expires_at = datetime.fromisoformat(expires_at)
+    if timezone.is_naive(expires_at):
+        expires_at = timezone.make_aware(expires_at)
+
+    return (
+        verification.get("email") == _normalize_email(email)
+        and verification.get("code") == (code or "").strip()
+        and expires_at >= timezone.now()
+    )
+
+
+@require_POST
+def send_registration_code(request):
+    email = _normalize_email(request.POST.get("email"))
+
+    if not email.endswith("@volsu.ru"):
+        return JsonResponse({"error": "Введите почту в домене @volsu.ru."}, status=400)
+
+    if User.objects.filter(email__iexact=email).exists():
+        return JsonResponse({"error": "Пользователь с такой почтой уже зарегистрирован."}, status=400)
+
+    code = f"{secrets.randbelow(1000000):06d}"
+    expires_at = timezone.now() + timedelta(minutes=REGISTRATION_CODE_TTL_MINUTES)
+
+    request.session[REGISTRATION_CODE_SESSION_KEY] = {
+        "email": email,
+        "code": code,
+        "expires_at": expires_at.isoformat(),
+    }
+    request.session.modified = True
+
+    send_mail(
+        subject="Код подтверждения регистрации ВолГУ",
+        message=f"Ваш код подтверждения: {code}\n\nКод действует {REGISTRATION_CODE_TTL_MINUTES} минут.",
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[email],
+        fail_silently=False,
+    )
+
+    return JsonResponse({"message": "Код отправлен на почту."})
+
+
+@require_POST
+def verify_registration_code(request):
+    email = _normalize_email(request.POST.get("email"))
+    code = request.POST.get("code")
+
+    if not _registration_code_is_valid(request, email, code):
+        return JsonResponse({"error": "Неверный или устаревший код."}, status=400)
+
+    request.session["registration_email_verified"] = email
+    request.session.modified = True
+    return JsonResponse({"message": "Почта подтверждена."})
+
+
 def register_view(request):
     if request.user.is_authenticated:
         return redirect("/accounts/profile/")
@@ -53,14 +138,25 @@ def register_view(request):
     if request.method == "POST":
         form = RegisterForm(request.POST)
         if form.is_valid():
-            user = form.save()
-            user.email = form.cleaned_data["email"]
+            email = form.cleaned_data["email"]
+            verification_code = request.POST.get("email_verification_code")
+            verified_email = request.session.get("registration_email_verified")
+
+            if verified_email != email or not _registration_code_is_valid(request, email, verification_code):
+                form.add_error("email", "Подтвердите почту кодом перед регистрацией.")
+                return render(request, "accounts/register.html", {"form": form})
+
+            user = form.save(commit=False)
+            user.username = _make_username_from_email(email)
+            user.email = email
             user.save()
 
             user.profile.full_name = form.cleaned_data["full_name"]
             user.profile.save()
 
             login(request, user)
+            request.session.pop(REGISTRATION_CODE_SESSION_KEY, None)
+            request.session.pop("registration_email_verified", None)
             return redirect("/")
     else:
         form = RegisterForm()

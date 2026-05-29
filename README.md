@@ -68,6 +68,13 @@ DEBUG=1
 SECRET_KEY=change-me
 DJANGO_ALLOWED_HOSTS=127.0.0.1,localhost
 DJANGO_CSRF_TRUSTED_ORIGINS=http://localhost:8000
+EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+EMAIL_HOST=smtp.example.com
+EMAIL_PORT=587
+EMAIL_HOST_USER=noreply@example.com
+EMAIL_HOST_PASSWORD=change-me
+EMAIL_USE_TLS=1
+DEFAULT_FROM_EMAIL=noreply@example.com
 
 POSTGRES_DB=science_registry
 POSTGRES_USER=science_user

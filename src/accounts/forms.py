@@ -16,10 +16,7 @@ class RegisterForm(UserCreationForm):
 
     class Meta:
         model = User
-        fields = ["username", "full_name", "email", "password1", "password2"]
-        widgets = {
-            "username": forms.TextInput(attrs={"class": "form-control"}),
-        }
+        fields = ["full_name", "email", "password1", "password2"]
 
     password1 = forms.CharField(
         label="Пароль",
@@ -29,6 +26,17 @@ class RegisterForm(UserCreationForm):
         label="Подтверждение пароля",
         widget=forms.PasswordInput(attrs={"class": "form-control"})
     )
+
+    def clean_email(self):
+        email = self.cleaned_data["email"].strip().lower()
+
+        if not email.endswith("@volsu.ru"):
+            raise forms.ValidationError("Для регистрации нужна почта в домене @volsu.ru.")
+
+        if User.objects.filter(email__iexact=email).exists():
+            raise forms.ValidationError("Пользователь с такой почтой уже зарегистрирован.")
+
+        return email
 
 
 class ProfileEditForm(forms.ModelForm):

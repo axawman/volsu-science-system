@@ -14,7 +14,7 @@
                     </p>
                 </div>
 
-                <form method="post" novalidate>
+                <form method="post" novalidate id="register-form">
                     {% csrf_token %}
 
                     {% if form.non_field_errors %}
@@ -22,14 +22,6 @@
                             {{ form.non_field_errors }}
                         </div>
                     {% endif %}
-
-                    <div class="mb-3">
-                        <label for="{{ form.username.id_for_label }}" class="form-label">Логин</label>
-                        {{ form.username }}
-                        {% if form.username.errors %}
-                            <div class="text-danger small mt-1">{{ form.username.errors }}</div>
-                        {% endif %}
-                    </div>
 
                     <div class="mb-3">
                         <label for="{{ form.full_name.id_for_label }}" class="form-label">ФИО</label>
@@ -41,13 +33,42 @@
 
                     <div class="mb-3">
                         <label for="{{ form.email.id_for_label }}" class="form-label">Email</label>
-                        {{ form.email }}
+                        <div class="input-group">
+                            {{ form.email }}
+                            <button type="button"
+                                    class="btn btn-outline-primary"
+                                    id="send-code-btn"
+                                    data-url="{% url 'send_registration_code' %}">
+                                Подтвердить
+                            </button>
+                        </div>
                         {% if form.email.errors %}
                             <div class="text-danger small mt-1">{{ form.email.errors }}</div>
                         {% endif %}
+                        <div class="form-text">Используйте почту в домене @volsu.ru.</div>
                     </div>
 
-                    <div class="mb-3">
+                    <div class="mb-3 d-none" id="verification-code-block">
+                        <label for="email-verification-code" class="form-label">Код из письма</label>
+                        <div class="input-group">
+                            <input type="text"
+                                   class="form-control"
+                                   id="email-verification-code"
+                                   name="email_verification_code"
+                                   inputmode="numeric"
+                                   maxlength="6"
+                                   autocomplete="one-time-code">
+                            <button type="button"
+                                    class="btn btn-outline-primary"
+                                    id="verify-code-btn"
+                                    data-url="{% url 'verify_registration_code' %}">
+                                Проверить
+                            </button>
+                        </div>
+                        <div class="form-text" id="verification-status">Введите 6-значный код, отправленный на почту.</div>
+                    </div>
+
+                    <div class="mb-3 password-step">
                         <label for="{{ form.password1.id_for_label }}" class="form-label">Пароль</label>
                         {{ form.password1 }}
                         {% if form.password1.errors %}
@@ -58,7 +79,7 @@
                         {% endif %}
                     </div>
 
-                    <div class="mb-4">
+                    <div class="mb-4 password-step">
                         <label for="{{ form.password2.id_for_label }}" class="form-label">Подтверждение пароля</label>
                         {{ form.password2 }}
                         {% if form.password2.errors %}
@@ -81,4 +102,109 @@
         </div>
     </div>
 </div>
+
+<style>
+    .password-step.is-disabled {
+        opacity: 0.55;
+        pointer-events: none;
+    }
+</style>
+
+<script>
+(() => {
+    const form = document.getElementById("register-form");
+    const emailInput = document.getElementById("{{ form.email.id_for_label }}");
+    const codeBlock = document.getElementById("verification-code-block");
+    const codeInput = document.getElementById("email-verification-code");
+    const statusEl = document.getElementById("verification-status");
+    const sendButton = document.getElementById("send-code-btn");
+    const verifyButton = document.getElementById("verify-code-btn");
+    const passwordSteps = document.querySelectorAll(".password-step");
+    const passwordInputs = document.querySelectorAll("#{{ form.password1.id_for_label }}, #{{ form.password2.id_for_label }}");
+    const submitButton = form?.querySelector('button[type="submit"]');
+    const csrfToken = form?.querySelector('input[name="csrfmiddlewaretoken"]')?.value;
+
+    function setPasswordEnabled(enabled) {
+        passwordSteps.forEach((step) => step.classList.toggle("is-disabled", !enabled));
+        passwordInputs.forEach((input) => {
+            input.disabled = !enabled;
+        });
+
+        if (submitButton) {
+            submitButton.disabled = !enabled;
+        }
+    }
+
+    function setStatus(message, isError = false) {
+        statusEl.textContent = message;
+        statusEl.classList.toggle("text-danger", isError);
+        statusEl.classList.toggle("text-success", !isError);
+    }
+
+    async function postForm(url, data) {
+        const response = await fetch(url, {
+            method: "POST",
+            body: data,
+            headers: {
+                "X-CSRFToken": csrfToken,
+                "X-Requested-With": "XMLHttpRequest"
+            }
+        });
+        const payload = await response.json();
+
+        if (!response.ok) {
+            throw new Error(payload.error || "Ошибка запроса.");
+        }
+
+        return payload;
+    }
+
+    setPasswordEnabled(false);
+
+    sendButton?.addEventListener("click", async () => {
+        const data = new FormData();
+        data.append("email", emailInput.value);
+        sendButton.disabled = true;
+        sendButton.textContent = "Отправка...";
+
+        try {
+            const payload = await postForm(sendButton.dataset.url, data);
+            codeBlock.classList.remove("d-none");
+            codeInput.focus();
+            setStatus(payload.message);
+        } catch (error) {
+            setStatus(error.message, true);
+        } finally {
+            sendButton.disabled = false;
+            sendButton.textContent = "Подтвердить";
+        }
+    });
+
+    verifyButton?.addEventListener("click", async () => {
+        const data = new FormData();
+        data.append("email", emailInput.value);
+        data.append("code", codeInput.value);
+        verifyButton.disabled = true;
+        verifyButton.textContent = "Проверка...";
+
+        try {
+            const payload = await postForm(verifyButton.dataset.url, data);
+            setPasswordEnabled(true);
+            setStatus(payload.message);
+        } catch (error) {
+            setPasswordEnabled(false);
+            setStatus(error.message, true);
+        } finally {
+            verifyButton.disabled = false;
+            verifyButton.textContent = "Проверить";
+        }
+    });
+
+    emailInput?.addEventListener("input", () => {
+        setPasswordEnabled(false);
+        codeInput.value = "";
+        codeBlock.classList.add("d-none");
+    });
+})();
+</script>
 {% endblock %}
