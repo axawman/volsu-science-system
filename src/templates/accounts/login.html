@@ -9,7 +9,7 @@
             <div class="card-body p-4">
                 <h1 class="h4 text-primary mb-4">Вход</h1>
 
-                <form method="post">
+                <form method="post" class="login-form">
                     {% csrf_token %}
 
                     <div class="mb-3">
@@ -32,4 +32,26 @@
         </div>
     </div>
 </div>
+
+<style>
+    .login-form input[type="text"],
+    .login-form input[type="password"] {
+        background-color: var(--bs-body-bg);
+        border: 1px solid var(--bs-border-color);
+        border-radius: 0.375rem;
+        color: var(--bs-body-color);
+        display: block;
+        font-size: 1rem;
+        line-height: 1.5;
+        padding: 0.375rem 0.75rem;
+        width: 100%;
+    }
+
+    .login-form input[type="text"]:focus,
+    .login-form input[type="password"]:focus {
+        border-color: var(--primary-soft);
+        box-shadow: 0 0 0 0.2rem rgba(47, 111, 237, 0.18);
+        outline: 0;
+    }
+</style>
 {% endblock %}
