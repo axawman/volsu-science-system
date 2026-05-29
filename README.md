@@ -37,8 +37,27 @@
 
 ## Скриншоты
 
-<img width="1749" height="1207" alt="Screenshot from 2026-04-02 23-59-02" src="https://github.com/user-attachments/assets/cf08dde3-b53e-4827-9edc-b7dca6ce3433" />
-<img width="1554" height="1273" alt="Screenshot from 2026-04-02 23-59-26" src="https://github.com/user-attachments/assets/2efff19f-8578-4330-8d94-6ffbc6d77b72" />
+<img width="1670" height="806" alt="Screenshot From 2026-05-29 06-38-17" src="https://github.com/user-attachments/assets/1f5b8c1c-07f1-4ca3-8f05-39c1aa3f2bb9" />
+Минималистичный дизай, автотема, календарь событий
+
+---
+
+<img width="1653" height="875" alt="Screenshot From 2026-05-29 06-38-46" src="https://github.com/user-attachments/assets/38a3f90f-9f9f-42c8-bf9e-c0f01193307d" />
+Поддержка разметок Latex, Markdown и программиного кода в описании работы
+
+---
+
+<img width="1653" height="875" alt="Screenshot From 2026-05-29 06-39-13" src="https://github.com/user-attachments/assets/b03de2cc-1e92-48f3-beac-9d1dfff1b9a6" />
+Верификация почты ВолГУ кодом доступа
+
+---
+
+Комментарии
+
+---
+
+<img width="1653" height="875" alt="Screenshot From 2026-05-29 06-39-29" src="https://github.com/user-attachments/assets/c3ccf8e8-85e4-4b44-96f8-b0f41ff46208" />
+
 
 
 
