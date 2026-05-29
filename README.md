@@ -67,6 +67,7 @@ http://localhost:8000
 DEBUG=1
 SECRET_KEY=change-me
 DJANGO_ALLOWED_HOSTS=127.0.0.1,localhost
+DJANGO_CSRF_TRUSTED_ORIGINS=http://localhost:8000
 
 POSTGRES_DB=science_registry
 POSTGRES_USER=science_user
