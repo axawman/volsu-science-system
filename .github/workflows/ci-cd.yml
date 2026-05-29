@@ -48,8 +48,15 @@ jobs:
           # Разрешаем Git работать с этой папкой
           git config --global --add safe.directory /home/axawys/volsu-science-system
 
+          DEPLOY_BRANCH="${{ github.ref_name }}"
+
           # Скачиваем свежий код
-          git pull origin main
+          git fetch origin "$DEPLOY_BRANCH"
+          git checkout "$DEPLOY_BRANCH"
+          git pull --ff-only origin "$DEPLOY_BRANCH"
+          echo "Deploying commit: $(git rev-parse --short HEAD)"
+          test -f src/templates/works/_comment_thread.html
           
           # Пересобираем и перезапускаем контейнеры без остановки сайта (-d)
-          docker compose up -d --build
+          docker compose up -d --build --force-recreate
+          docker compose ps
