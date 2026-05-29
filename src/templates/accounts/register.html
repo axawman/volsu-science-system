@@ -46,6 +46,7 @@
                             <div class="text-danger small mt-1">{{ form.email.errors }}</div>
                         {% endif %}
                         <div class="form-text">Используйте почту в домене @volsu.ru.</div>
+                        <div class="form-text" id="verification-status"></div>
                     </div>
 
                     <div class="mb-3 d-none" id="verification-code-block">
@@ -65,7 +66,7 @@
                                 Проверить
                             </button>
                         </div>
-                        <div class="form-text" id="verification-status">Введите 6-значный код, отправленный на почту.</div>
+                        <div class="form-text">Введите 6-значный код, отправленный на почту.</div>
                     </div>
 
                     <div class="mb-3 password-step">
@@ -150,7 +151,10 @@
                 "X-Requested-With": "XMLHttpRequest"
             }
         });
-        const payload = await response.json();
+        const contentType = response.headers.get("content-type") || "";
+        const payload = contentType.includes("application/json")
+            ? await response.json()
+            : {error: await response.text()};
 
         if (!response.ok) {
             throw new Error(payload.error || "Ошибка запроса.");
@@ -173,6 +177,7 @@
             codeInput.focus();
             setStatus(payload.message);
         } catch (error) {
+            codeBlock.classList.add("d-none");
             setStatus(error.message, true);
         } finally {
             sendButton.disabled = false;
