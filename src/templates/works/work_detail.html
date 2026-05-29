@@ -158,7 +158,7 @@
                     <h2 class="h5 text-primary mb-3">Комментарии</h2>
 
                     {% if request.user.is_authenticated %}
-                        <form method="post" class="mb-4">
+                        <form method="post" class="comment-form mb-4" data-comment-form>
                             {% csrf_token %}
                             {{ comment_form.text }}
                             <div class="mt-3">
@@ -173,29 +173,13 @@
                         </div>
                     {% endif %}
 
-                    {% for comment in comments %}
-                        <div class="border rounded-3 p-3 mb-3 bg-light">
-                            <div class="d-flex justify-content-between align-items-start gap-3 mb-2">
-                                <div>
-                                    <div class="fw-semibold">
-                                        {% if comment.author.profile.full_name %}
-                                            {{ comment.author.profile.full_name }}
-                                        {% else %}
-                                            {{ comment.author.username }}
-                                        {% endif %}
-                                    </div>
-                                    <div class="small text-secondary">@{{ comment.author.username }}</div>
-                                </div>
-                                <div class="small text-secondary">
-                                    {{ comment.created_at }}
-                                </div>
-                            </div>
-
-                            <div style="white-space: pre-wrap;">{{ comment.text }}</div>
-                        </div>
-                    {% empty %}
-                        <p class="text-secondary mb-0">Комментариев пока нет.</p>
-                    {% endfor %}
+                    <div id="comments-list">
+                        {% if comments %}
+                            {% include "works/_comment_thread.html" with comments=comments %}
+                        {% else %}
+                            <p class="text-secondary mb-0" id="comments-empty">Комментариев пока нет.</p>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
         {% endif %}
@@ -339,6 +323,40 @@
     .code-block code.hljs {
         padding: 1rem;
     }
+
+    .comment-replies {
+        border-left: 3px solid var(--border-soft);
+        display: grid;
+        gap: 0.75rem;
+        padding-left: 1rem;
+    }
+
+    .comment-replies .comment-thread {
+        margin-bottom: 0 !important;
+    }
+
+    .reply-form textarea {
+        resize: vertical;
+    }
+
+    .comment-actions-toggle {
+        align-items: center;
+        border-radius: 50%;
+        display: inline-flex;
+        height: 1.85rem;
+        justify-content: center;
+        line-height: 1;
+        padding: 0;
+        width: 1.85rem;
+    }
+
+    .comment-actions .dropdown-menu form {
+        margin: 0;
+    }
+
+    .comment-edit-form textarea {
+        resize: vertical;
+    }
 </style>
 
 {% if work.content %}
@@ -365,6 +383,222 @@ window.MathJax = {
 };
 </script>
 <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+<script>
+document.addEventListener("click", (event) => {
+    const button = event.target.closest(".reply-toggle, .reply-cancel");
+
+    if (!button) {
+        return;
+    }
+
+    const form = document.getElementById(button.dataset.replyTarget);
+
+    if (!form) {
+        return;
+    }
+
+    form.classList.toggle("d-none");
+
+    if (!form.classList.contains("d-none")) {
+        form.querySelector("textarea")?.focus();
+    }
+});
+
+document.addEventListener("click", (event) => {
+    const button = event.target.closest(".comment-edit-toggle, .comment-edit-cancel");
+
+    if (!button) {
+        return;
+    }
+
+    const form = document.getElementById(button.dataset.editTarget);
+
+    if (!form) {
+        return;
+    }
+
+    const commentEl = form.closest(".comment-thread");
+    const textEl = commentEl?.querySelector(":scope > .comment-text");
+    const replyActionsEl = commentEl?.querySelector(":scope > .comment-reply-actions");
+    const replyFormEl = commentEl?.querySelector(":scope > .reply-form");
+    const isOpening = form.classList.contains("d-none");
+
+    form.classList.toggle("d-none");
+
+    textEl?.classList.toggle("d-none", isOpening);
+    replyActionsEl?.classList.toggle("d-none", isOpening);
+
+    if (isOpening) {
+        replyFormEl?.classList.add("d-none");
+        form.querySelector("textarea")?.focus();
+    }
+});
+
+document.addEventListener("submit", async (event) => {
+    const form = event.target.closest("[data-comment-form]");
+
+    if (!form) {
+        return;
+    }
+
+    event.preventDefault();
+
+    const submitButton = form.querySelector('button[type="submit"]');
+    const originalButtonText = submitButton?.textContent;
+
+    if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.textContent = "Отправка...";
+    }
+
+    try {
+        const response = await fetch(form.action || window.location.href, {
+            method: "POST",
+            body: new FormData(form),
+            headers: {
+                "X-Requested-With": "XMLHttpRequest"
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error("Comment submit failed");
+        }
+
+        const data = await response.json();
+        const template = document.createElement("template");
+        template.innerHTML = data.html.trim();
+        const commentEl = template.content.firstElementChild;
+
+        if (!commentEl) {
+            return;
+        }
+
+        if (data.parent_id) {
+            const parentEl = document.getElementById(`comment-${data.parent_id}`);
+            let repliesEl = parentEl?.querySelector(`:scope > .comment-replies[data-replies-for="${data.parent_id}"]`);
+
+            if (!repliesEl && parentEl) {
+                repliesEl = document.createElement("div");
+                repliesEl.className = "comment-replies mt-3";
+                repliesEl.dataset.repliesFor = data.parent_id;
+                parentEl.appendChild(repliesEl);
+            }
+
+            repliesEl?.appendChild(commentEl);
+            form.classList.add("d-none");
+        } else {
+            document.getElementById("comments-empty")?.remove();
+            document.getElementById("comments-list")?.prepend(commentEl);
+        }
+
+        form.reset();
+    } catch (error) {
+        form.submit();
+    } finally {
+        if (submitButton) {
+            submitButton.disabled = false;
+            submitButton.textContent = originalButtonText;
+        }
+    }
+});
+
+document.addEventListener("submit", async (event) => {
+    const form = event.target.closest("[data-edit-comment-form]");
+
+    if (!form) {
+        return;
+    }
+
+    event.preventDefault();
+
+    const commentEl = form.closest(".comment-thread");
+    const textEl = commentEl?.querySelector(":scope > .comment-text");
+    const submitButton = form.querySelector('button[type="submit"]');
+    const originalButtonText = submitButton?.textContent;
+
+    if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.textContent = "Сохранение...";
+    }
+
+    try {
+        const response = await fetch(form.action, {
+            method: "POST",
+            body: new FormData(form),
+            headers: {
+                "X-Requested-With": "XMLHttpRequest"
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error("Comment edit failed");
+        }
+
+        const data = await response.json();
+
+        if (textEl) {
+            textEl.textContent = data.text;
+            textEl.classList.remove("d-none");
+        }
+
+        commentEl?.querySelector(":scope > .comment-reply-actions")?.classList.remove("d-none");
+        form.classList.add("d-none");
+    } catch (error) {
+        form.submit();
+    } finally {
+        if (submitButton) {
+            submitButton.disabled = false;
+            submitButton.textContent = originalButtonText;
+        }
+    }
+});
+
+document.addEventListener("submit", async (event) => {
+    const form = event.target.closest("[data-delete-comment-form]");
+
+    if (!form) {
+        return;
+    }
+
+    event.preventDefault();
+
+    if (!window.confirm("Удалить комментарий?")) {
+        return;
+    }
+
+    const commentEl = form.closest(".comment-thread");
+    const repliesEl = commentEl?.parentElement?.matches(".comment-replies") ? commentEl.parentElement : null;
+
+    try {
+        const response = await fetch(form.action, {
+            method: "POST",
+            body: new FormData(form),
+            headers: {
+                "X-Requested-With": "XMLHttpRequest"
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error("Comment delete failed");
+        }
+
+        commentEl?.remove();
+
+        if (repliesEl && !repliesEl.querySelector(".comment-thread")) {
+            repliesEl.remove();
+        }
+
+        const commentsList = document.getElementById("comments-list");
+
+        if (commentsList && !commentsList.querySelector(".comment-thread")) {
+            commentsList.innerHTML = '<p class="text-secondary mb-0" id="comments-empty">Комментариев пока нет.</p>';
+        }
+    } catch (error) {
+        form.submit();
+    }
+});
+</script>
 
 <script>
 (() => {

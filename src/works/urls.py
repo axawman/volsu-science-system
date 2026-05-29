@@ -2,8 +2,10 @@ from django.urls import path
 from .views import (
     all_works,
     create_work,
+    delete_comment,
     download_version_archive,
     download_version_file,
+    edit_comment,
     my_works,
     update_work,
     upload_version,
@@ -16,6 +18,8 @@ urlpatterns = [
     path("create/", create_work, name="create_work"),
     path("my/", my_works, name="my_works"),
     path("sections/<int:section_id>/", section_detail, name="section_detail"),
+    path("<int:work_id>/comments/<int:comment_id>/edit/", edit_comment, name="edit_comment"),
+    path("<int:work_id>/comments/<int:comment_id>/delete/", delete_comment, name="delete_comment"),
     path("<int:work_id>/update/", update_work, name="update_work"),
     path("<int:work_id>/upload-version/", upload_version, name="upload_version"),
     path(

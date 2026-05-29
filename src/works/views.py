@@ -5,17 +5,20 @@ from io import BytesIO
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
-from django.http import FileResponse, Http404, HttpResponse
+from django.views.decorators.http import require_POST
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
+from django.template.loader import render_to_string
 from django.utils.text import slugify
 
 from .forms import WorkCreateForm, WorkEditForm, WorkVersionForm
 from .models import Work, WorkSection, WorkVersion, WorkVersionFile
 from discussions.forms import WorkCommentForm
+from discussions.models import WorkComment
 
 
 def user_can_manage_work(user, work):
-    return user == work.author or user.profile.is_admin()
+    return user == work.author or user.is_staff or user.is_superuser or user.profile.is_admin()
 
 
 @login_required
@@ -151,11 +154,49 @@ def section_detail(request, section_id):
     })
 
 
+def _build_comment_tree(comments):
+    comment_map = {}
+    root_comments = []
+
+    for comment in comments:
+        comment.child_comments = []
+        comment_map[comment.id] = comment
+
+    for comment in comments:
+        if comment.parent_id and comment.parent_id in comment_map:
+            comment_map[comment.parent_id].child_comments.append(comment)
+        else:
+            root_comments.append(comment)
+
+    root_comments.sort(key=lambda comment: comment.created_at, reverse=True)
+    return root_comments
+
+
+def _is_ajax(request):
+    return request.headers.get("x-requested-with") == "XMLHttpRequest"
+
+
+def _user_can_edit_comment(user, comment):
+    return user.is_authenticated and comment.author_id == user.id
+
+
+def _user_can_delete_comment(user, comment):
+    return user.is_authenticated and (
+        comment.author_id == user.id
+        or user.is_staff
+        or user.is_superuser
+        or user.profile.is_admin()
+    )
+
+
 def work_detail(request, work_id):
     work = get_object_or_404(Work.objects.select_related("author", "section", "author__profile"), id=work_id)
 
     is_owner_or_admin = request.user.is_authenticated and (
-        request.user == work.author or request.user.profile.is_admin()
+        request.user == work.author
+        or request.user.is_staff
+        or request.user.is_superuser
+        or request.user.profile.is_admin()
     )
     is_publicly_available = work.status == "published" and work.visibility == "public"
 
@@ -164,9 +205,13 @@ def work_detail(request, work_id):
 
     if request.method == "POST":
         if not request.user.is_authenticated:
+            if _is_ajax(request):
+                return JsonResponse({"error": "Чтобы оставить комментарий, нужно войти."}, status=403)
             return redirect("login")
 
         if not is_publicly_available:
+            if _is_ajax(request):
+                return JsonResponse({"error": "Комментарии разрешены только для опубликованных открытых работ."}, status=403)
             return HttpResponse("Комментарии разрешены только для опубликованных открытых работ")
 
         comment_form = WorkCommentForm(request.POST)
@@ -174,13 +219,41 @@ def work_detail(request, work_id):
             comment = comment_form.save(commit=False)
             comment.work = work
             comment.author = request.user
+
+            parent_id = request.POST.get("parent_id")
+            if parent_id:
+                comment.parent = get_object_or_404(WorkComment, id=parent_id, work=work)
+
             comment.save()
-            return redirect("work_detail", work_id=work.id)
+            comment.child_comments = []
+
+            if _is_ajax(request):
+                html = render_to_string(
+                    "works/_comment_thread.html",
+                    {"comments": [comment]},
+                    request=request,
+                )
+                return JsonResponse({
+                    "html": html,
+                    "comment_id": comment.id,
+                    "parent_id": comment.parent_id,
+                })
+
+            response = redirect("work_detail", work_id=work.id)
+            response["Location"] += f"#comment-{comment.id}"
+            return response
+        if _is_ajax(request):
+            return JsonResponse({"errors": comment_form.errors}, status=400)
     else:
         comment_form = WorkCommentForm()
 
     versions = work.versions.prefetch_related("files", "uploaded_by").all()
-    comments = work.comments.select_related("author").order_by("-created_at")
+    all_comments = (
+        work.comments
+        .select_related("author", "author__profile")
+        .order_by("created_at")
+    )
+    comments = _build_comment_tree(all_comments)
     total_files = WorkVersionFile.objects.filter(version__work=work).count()
 
     return render(request, "works/work_detail.html", {
@@ -194,11 +267,69 @@ def work_detail(request, work_id):
     })
 
 
+@login_required
+@require_POST
+def edit_comment(request, work_id, comment_id):
+    work = get_object_or_404(Work, id=work_id)
+    comment = get_object_or_404(WorkComment, id=comment_id, work=work)
+
+    if not _user_can_edit_comment(request.user, comment):
+        if _is_ajax(request):
+            return JsonResponse({"error": "Редактировать можно только свои комментарии."}, status=403)
+        return HttpResponse("Доступ запрещен", status=403)
+
+    text = request.POST.get("text", "").strip()
+    if not text:
+        if _is_ajax(request):
+            return JsonResponse({"error": "Комментарий не может быть пустым."}, status=400)
+        response = redirect("work_detail", work_id=work.id)
+        response["Location"] += f"#comment-{comment.id}"
+        return response
+
+    comment.text = text
+    comment.save(update_fields=["text", "updated_at"])
+
+    if _is_ajax(request):
+        return JsonResponse({"comment_id": comment.id, "text": comment.text})
+
+    response = redirect("work_detail", work_id=work.id)
+    response["Location"] += f"#comment-{comment.id}"
+    return response
+
+
+@login_required
+@require_POST
+def delete_comment(request, work_id, comment_id):
+    work = get_object_or_404(Work, id=work_id)
+    comment = get_object_or_404(WorkComment, id=comment_id, work=work)
+
+    if not _user_can_delete_comment(request.user, comment):
+        if _is_ajax(request):
+            return JsonResponse({"error": "Недостаточно прав для удаления комментария."}, status=403)
+        return HttpResponse("Доступ запрещен", status=403)
+
+    parent_id = comment.parent_id
+    comment.delete()
+
+    if _is_ajax(request):
+        return JsonResponse({"comment_id": comment_id, "parent_id": parent_id})
+
+    response = redirect("work_detail", work_id=work.id)
+    if parent_id:
+        response["Location"] += f"#comment-{parent_id}"
+    return response
+
+
 def _ensure_work_visible_to_user(request, work):
     if work.visibility == "private":
         if not request.user.is_authenticated:
             raise Http404()
-        if request.user != work.author and not request.user.profile.is_admin():
+        if (
+            request.user != work.author
+            and not request.user.is_staff
+            and not request.user.is_superuser
+            and not request.user.profile.is_admin()
+        ):
             raise Http404()
 
 

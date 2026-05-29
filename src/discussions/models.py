@@ -5,6 +5,14 @@ from works.models import Work
 
 class WorkComment(models.Model):
     work = models.ForeignKey(Work, on_delete=models.CASCADE, related_name="comments", verbose_name="Работа")
+    parent = models.ForeignKey(
+        "self",
+        on_delete=models.CASCADE,
+        related_name="replies",
+        null=True,
+        blank=True,
+        verbose_name="Ответ на комментарий",
+    )
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name="work_comments", verbose_name="Автор")
     text = models.TextField("Текст комментария")
     created_at = models.DateTimeField("Создано", auto_now_add=True)
