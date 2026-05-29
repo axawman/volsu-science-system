@@ -1,5 +1,5 @@
 from django.contrib import admin
 
-admin.site.site_header = "Администрирование научной деятельности ВолГУ"
-admin.site.site_title = "Админ-панель ВолГУ"
-admin.site.index_title = "Управление данными системы"
+admin.site.site_header = "Администрирование ScienceHub ВолГУ"
+admin.site.site_title = "ScienceHub ВолГУ"
+admin.site.index_title = "Управление данными ScienceHub"

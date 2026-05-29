@@ -110,7 +110,7 @@ def send_registration_code(request):
 
     try:
         send_mail(
-            subject="Код подтверждения регистрации ВолГУ",
+            subject="Код подтверждения регистрации ScienceHub ВолГУ",
             message=f"Ваш код подтверждения: {code}\n\nКод действует {REGISTRATION_CODE_TTL_MINUTES} минут.",
             from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[email],

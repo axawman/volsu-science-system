@@ -1,4 +1,4 @@
-# VolSU Science System
+# ScienceHub ВолГУ
 
 ![Python](https://img.shields.io/badge/Python-3.12-blue?logo=python)
 ![Django](https://img.shields.io/badge/Django-4.x-green?logo=django)
@@ -6,7 +6,7 @@
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-✓-blue?logo=postgresql)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
-Система регистрации научной деятельности ВолГУ.
+Платформа для регистрации и сопровождения научной деятельности ВолГУ.
 
 Веб-приложение для управления научными работами, версиями, мероприятиями и обсуждениями.
 
