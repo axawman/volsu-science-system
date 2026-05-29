@@ -3,13 +3,12 @@
 {% block title %}{{ work.title }}{% endblock %}
 
 {% block content %}
-<div class="row g-4">
-
-    <div class="col-lg-8">
+<div class="row justify-content-center">
+    <div class="col-lg-10 col-xl-9">
         <div class="card shadow-sm border-0 rounded-4">
             <div class="card-body p-4">
 
-                <div class="d-flex justify-content-between align-items-start mb-3">
+                <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
                     <div>
                         <h1 class="h4 text-primary mb-1">{{ work.title }}</h1>
                         {% if work.section %}<div class="text-secondary small mt-2">Раздел: <a href="{% url 'section_detail' work.section.id %}" class="mini-list-title">{{ work.section.name }}</a></div>{% endif %}
@@ -19,9 +18,22 @@
                         </div>
                     </div>
 
-                    <div class="text-end">
-                        <span class="badge text-bg-primary mb-1">{{ work.get_visibility_display }}</span><br>
-                        <span class="badge text-bg-secondary">{{ work.get_status_display }}</span>
+                    <div class="text-end d-flex flex-column align-items-end gap-2">
+                        <div>
+                            <span class="badge text-bg-primary mb-1">{{ work.get_visibility_display }}</span><br>
+                            <span class="badge text-bg-secondary">{{ work.get_status_display }}</span>
+                        </div>
+
+                        {% if request.user == work.author or request.user.is_staff or request.user.is_superuser or request.user.profile.is_admin %}
+                            <div class="d-flex gap-2 flex-wrap justify-content-end">
+                                <a href="/works/{{ work.id }}/update/" class="btn btn-sm btn-outline-primary">
+                                    Редактировать
+                                </a>
+                                <a href="/works/{{ work.id }}/upload-version/" class="btn btn-sm btn-primary">
+                                    Добавить версию
+                                </a>
+                            </div>
+                        {% endif %}
                     </div>
                 </div>
 
@@ -92,13 +104,6 @@
                         <div class="small text-secondary mt-1">Всего файлов: {{ total_files }}</div>
                     </div>
 
-                    <div class="d-flex gap-2 flex-wrap">
-                        {% if request.user == work.author or request.user.profile.is_admin %}
-                            <a href="/works/{{ work.id }}/upload-version/" class="btn btn-sm btn-outline-primary">
-                                + Новая версия
-                            </a>
-                        {% endif %}
-                    </div>
                 </div>
 
                 {% for version in versions %}
@@ -176,30 +181,6 @@
                 </div>
             </div>
         {% endif %}
-    </div>
-
-    <div class="col-lg-4">
-        <div class="card shadow-sm border-0 rounded-4">
-            <div class="card-body p-4">
-                <h3 class="h6 text-primary mb-3">Действия</h3>
-
-                <div class="d-grid gap-2">
-                    {% if request.user == work.author or request.user.profile.is_admin %}
-                        <a href="/works/{{ work.id }}/update/" class="btn btn-outline-primary">
-                            Редактировать работу
-                        </a>
-
-                        <a href="/works/{{ work.id }}/upload-version/" class="btn btn-outline-primary">
-                            Добавить версию
-                        </a>
-                    {% endif %}
-
-                    <a href="/works/" class="btn btn-outline-secondary">
-                        Все работы
-                    </a>
-                </div>
-            </div>
-        </div>
     </div>
 
 </div>
