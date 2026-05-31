@@ -49,18 +49,32 @@ def home(request):
 
     calendar_items = []
 
-    for meeting in Meeting.objects.all():
+    for meeting in Meeting.objects.select_related("created_by").all():
+        meeting_at = timezone.localtime(meeting.start_at)
         calendar_items.append({
-            "date": meeting.start_at.date().isoformat(),
+            "date": meeting_at.date().isoformat(),
+            "time": meeting_at.strftime("%H:%M"),
             "title": meeting.title,
             "type": "meeting",
+            "kind": "Встреча",
+            "description": meeting.description,
+            "location": meeting.location,
+            "created_by": meeting.created_by.username,
+            "is_past": meeting.start_at < now,
         })
 
-    for event in Event.objects.all():
+    for event in Event.objects.select_related("created_by").all():
+        event_at = timezone.localtime(event.event_date)
         calendar_items.append({
-            "date": event.event_date.date().isoformat(),
+            "date": event_at.date().isoformat(),
+            "time": event_at.strftime("%H:%M"),
             "title": event.title,
             "type": "event",
+            "kind": "Событие",
+            "description": event.description,
+            "location": event.location,
+            "created_by": event.created_by.username,
+            "is_past": event.event_date < now,
         })
 
     context = {
