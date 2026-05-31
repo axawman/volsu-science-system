@@ -23,7 +23,10 @@
                         {{ work.title }}
                     </a>
                     <div class="meta">
-                        Автор: {{ work.author.username }}<br>
+                        Автор:
+                        <a href="{% url 'public_profile' work.author.username %}" class="mini-list-title">
+                            {{ work.author.profile.short_name }}
+                        </a><br>
                         Статус: {{ work.get_status_display }}<br>
                         Создано: {{ work.created_at|date:"d.m.Y H:i" }}
                     </div>

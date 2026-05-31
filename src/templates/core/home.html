@@ -47,7 +47,10 @@
                                     </a>
                                     <div class="meta">
                                         {% if work.section %}Раздел: {{ work.section.name }}<br>{% endif %}
-                                        Автор: {{ work.author.profile.short_name }}<br>
+                                        Автор:
+                                        <a href="{% url 'public_profile' work.author.username %}" class="mini-list-title">
+                                            {{ work.author.profile.short_name }}
+                                        </a><br>
                                         Обновлено: {{ work.updated_at|date:"d.m.Y H:i" }}
                                     </div>
                                     {% if work.description %}
@@ -144,7 +147,10 @@
                             <div class="meta">
                                 {% if item.end_date %}До {{ item.end_date|date:"d.m.Y H:i" }}<br>{% endif %}
                                 {% if item.location %}Место: {{ item.location }}<br>{% endif %}
-                                Добавил: {{ item.created_by.username }}
+                                Добавил:
+                                <a href="{% url 'public_profile' item.created_by.username %}" class="mini-list-title">
+                                    {{ item.created_by.profile.short_name }}
+                                </a>
                             </div>
                         </div>
                     </div>
@@ -518,12 +524,16 @@ function renderSelectedDate(dateStr) {
 
         const details = document.createElement("div");
         details.className = "meta";
-        const detailsParts = [];
         if (item.location) {
-            detailsParts.push(`Место: ${item.location}`);
+            details.append(`Место: ${item.location} · `);
         }
-        detailsParts.push(`Добавил: ${item.created_by}`);
-        details.textContent = detailsParts.join(" · ");
+        details.append("Добавил: ");
+
+        const authorLink = document.createElement("a");
+        authorLink.className = "mini-list-title";
+        authorLink.href = item.created_by_url;
+        authorLink.textContent = item.created_by_name || item.created_by;
+        details.appendChild(authorLink);
 
         wrapper.append(meta, title, details);
 

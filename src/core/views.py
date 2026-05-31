@@ -1,5 +1,6 @@
 from django.db.models import Count, Q
 from django.shortcuts import render
+from django.urls import reverse
 from django.utils import timezone
 
 from .models import PlatformNews
@@ -44,8 +45,18 @@ def home(request):
 
         search_results = searchable_works.distinct().order_by("-updated_at")[:8]
 
-    upcoming_meetings = Meeting.objects.filter(start_at__gte=now).order_by("start_at")[:5]
-    upcoming_events = Event.objects.filter(event_date__gte=now).order_by("event_date")[:5]
+    upcoming_meetings = (
+        Meeting.objects
+        .filter(start_at__gte=now)
+        .select_related("created_by", "created_by__profile")
+        .order_by("start_at")[:5]
+    )
+    upcoming_events = (
+        Event.objects
+        .filter(event_date__gte=now)
+        .select_related("created_by", "created_by__profile")
+        .order_by("event_date")[:5]
+    )
     upcoming_activity = []
 
     for meeting in upcoming_meetings:
@@ -85,6 +96,8 @@ def home(request):
             "description": meeting.description,
             "location": meeting.location,
             "created_by": meeting.created_by.username,
+            "created_by_name": meeting.created_by.profile.short_name,
+            "created_by_url": reverse("public_profile", kwargs={"username": meeting.created_by.username}),
             "is_past": meeting.start_at < now,
         })
 
@@ -99,6 +112,8 @@ def home(request):
             "description": event.description,
             "location": event.location,
             "created_by": event.created_by.username,
+            "created_by_name": event.created_by.profile.short_name,
+            "created_by_url": reverse("public_profile", kwargs={"username": event.created_by.username}),
             "is_past": event.event_date < now,
         })
 

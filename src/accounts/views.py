@@ -20,7 +20,7 @@ from django.core.management import call_command
 from django.db import connection, transaction
 from django.core.management.color import no_style
 from django.http import FileResponse, JsonResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
@@ -211,7 +211,30 @@ def profile_view(request):
     works = Work.objects.filter(author=request.user).select_related("section").order_by("-updated_at")
     return render(request, "accounts/profile.html", {
         "profile": request.user.profile,
+        "profile_user": request.user,
         "works": works,
+        "is_own_profile": True,
+    })
+
+
+def public_profile_view(request, username):
+    from works.models import Work
+
+    profile_user = get_object_or_404(
+        User.objects.select_related("profile"),
+        username=username,
+    )
+    works = Work.objects.filter(
+        author=profile_user,
+        status="published",
+        visibility="public",
+    ).select_related("section").order_by("-updated_at")
+
+    return render(request, "accounts/profile.html", {
+        "profile": profile_user.profile,
+        "profile_user": profile_user,
+        "works": works,
+        "is_own_profile": request.user.is_authenticated and request.user == profile_user,
     })
 
 

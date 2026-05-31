@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Профиль{% endblock %}
+{% block title %}{{ profile.full_name|default:profile_user.username }}{% endblock %}
 
 {% block content %}
 <div class="profile-layout">
@@ -20,11 +20,13 @@
 
                 <div class="flex-grow-1 text-center text-md-start">
                     <div class="d-flex flex-column flex-md-row align-items-center align-items-md-start gap-2 mb-2">
-                        <h1 class="h3 text-primary mb-0">{{ profile.full_name }}</h1>
+                        <h1 class="h3 text-primary mb-0">{{ profile.full_name|default:profile_user.username }}</h1>
                         <span class="badge badge-soft profile-role">{{ profile.role_name }}</span>
                     </div>
 
-                    <p class="text-secondary mb-3">{{ request.user.email }}</p>
+                    {% if is_own_profile %}
+                        <p class="text-secondary mb-3">{{ profile_user.email }}</p>
+                    {% endif %}
 
                     {% if profile.bio %}
                         <div class="profile-bio">{{ profile.bio }}</div>
@@ -35,22 +37,27 @@
             </div>
 
             <div class="d-flex flex-wrap gap-2 mt-4">
-                <a href="/accounts/profile/edit/" class="btn btn-primary">Редактировать профиль</a>
+                {% if is_own_profile %}
+                    <a href="/accounts/profile/edit/" class="btn btn-primary">Редактировать профиль</a>
+                {% endif %}
                 <button type="button"
                         class="btn btn-outline-primary"
                         data-bs-toggle="modal"
                         data-bs-target="#messagesSoonModal">
                     Личные сообщения
                 </button>
-                <a href="/works/create/" class="btn btn-outline-primary">Добавить работу</a>
-                {% if user.is_superuser or user.is_staff or user.profile.role == "admin" %}
-                    <a href="/accounts/data-transfer/" class="btn btn-outline-secondary">Экспорт и импорт</a>
-                {% endif %}
 
-                <form method="post" action="/logout/" class="d-inline">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-outline-danger">Выйти</button>
-                </form>
+                {% if is_own_profile %}
+                    <a href="/works/create/" class="btn btn-outline-primary">Добавить работу</a>
+                    {% if user.is_superuser or user.is_staff or user.profile.role == "admin" %}
+                        <a href="/accounts/data-transfer/" class="btn btn-outline-secondary">Экспорт и импорт</a>
+                    {% endif %}
+
+                    <form method="post" action="/logout/" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-outline-danger">Выйти</button>
+                    </form>
+                {% endif %}
             </div>
         </div>
     </section>
@@ -59,7 +66,9 @@
         <div class="card-body p-4">
             <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap mb-2">
                 <h2 class="section-title mb-0">Работы</h2>
-                <a href="/works/my/" class="btn btn-sm btn-outline-primary">Все мои работы</a>
+                {% if is_own_profile %}
+                    <a href="/works/my/" class="btn btn-sm btn-outline-primary">Все мои работы</a>
+                {% endif %}
             </div>
 
             {% if works %}
@@ -83,9 +92,11 @@
                                 <div class="profile-work-actions">
                                     <span class="badge badge-soft">{{ work.get_visibility_display }}</span>
                                     <span class="badge text-bg-secondary">{{ work.get_status_display }}</span>
-                                    <a href="/works/{{ work.id }}/update/" class="btn btn-sm btn-outline-primary">
-                                        Редактировать
-                                    </a>
+                                    {% if is_own_profile %}
+                                        <a href="/works/{{ work.id }}/update/" class="btn btn-sm btn-outline-primary">
+                                            Редактировать
+                                        </a>
+                                    {% endif %}
                                 </div>
                             </div>
                         </article>
@@ -93,7 +104,11 @@
                 </div>
             {% else %}
                 <div class="text-center text-secondary py-4">
-                    У вас пока нет работ.
+                    {% if is_own_profile %}
+                        У вас пока нет работ.
+                    {% else %}
+                        У пользователя пока нет публичных работ.
+                    {% endif %}
                 </div>
             {% endif %}
         </div>

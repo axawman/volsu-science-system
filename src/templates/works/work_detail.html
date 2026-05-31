@@ -43,29 +43,33 @@
                     <h2 class="h6 text-primary">Автор работы</h2>
 
                     <div class="d-flex align-items-start gap-3 border rounded-3 p-3 bg-light">
-                        {% if work.author.profile.photo %}
-                            <img src="{{ work.author.profile.photo.url }}"
-                                 class="rounded-circle"
-                                 width="72" height="72"
-                                 style="object-fit: cover;"
-                                 alt="Фото автора">
-                        {% else %}
-                            <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center"
-                                 style="width:72px;height:72px;font-size:24px;">
-                                {{ work.author.username|slice:":1"|upper }}
-                            </div>
-                        {% endif %}
+                        <a href="{% url 'public_profile' work.author.username %}"
+                           class="author-avatar-link"
+                           aria-label="Открыть профиль автора">
+                            {% if work.author.profile.photo %}
+                                <img src="{{ work.author.profile.photo.url }}"
+                                     class="rounded-circle"
+                                     width="72" height="72"
+                                     style="object-fit: cover;"
+                                     alt="Фото автора">
+                            {% else %}
+                                <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center"
+                                     style="width:72px;height:72px;font-size:24px;">
+                                    {{ work.author.profile.avatar_initial }}
+                                </div>
+                            {% endif %}
+                        </a>
 
                         <div>
                             <div class="fw-semibold">
-                                {% if work.author.profile.full_name %}
-                                    {{ work.author.profile.full_name }}
-                                {% else %}
-                                    {{ work.author.username }}
-                                {% endif %}
+                                <a href="{% url 'public_profile' work.author.username %}" class="mini-list-title">
+                                    {% if work.author.profile.full_name %}
+                                        {{ work.author.profile.full_name }}
+                                    {% else %}
+                                        {{ work.author.username }}
+                                    {% endif %}
+                                </a>
                             </div>
-                            <div class="text-secondary small mb-2">@{{ work.author.username }}</div>
-
                             {% if work.author.email %}
                                 <div class="small mb-2">
                                     <strong>Email:</strong> {{ work.author.email }}
@@ -113,7 +117,10 @@
                                 <div class="fw-semibold">Версия {{ version.version_number }}</div>
                                 <div class="small text-secondary mt-1">
                                     Загружено: {{ version.created_at }}<br>
-                                    Пользователь: {{ version.uploaded_by.username }}<br>
+                                    Пользователь:
+                                    <a href="{% url 'public_profile' version.uploaded_by.username %}" class="mini-list-title">
+                                        {{ version.uploaded_by.profile.short_name }}
+                                    </a><br>
                                     Файлов: {{ version.file_count }}
                                 </div>
                                 {% if version.comment %}
@@ -196,6 +203,41 @@
     .markdown-body {
         line-height: 1.7;
         overflow-wrap: anywhere;
+    }
+
+    .author-avatar-link {
+        flex: 0 0 auto;
+        text-decoration: none;
+    }
+
+    .comment-author-avatar {
+        align-items: center;
+        border-radius: 50%;
+        display: inline-flex;
+        flex: 0 0 auto;
+        height: 36px;
+        justify-content: center;
+        overflow: hidden;
+        text-decoration: none;
+        width: 36px;
+    }
+
+    .comment-author-avatar img {
+        height: 100%;
+        object-fit: cover;
+        width: 100%;
+    }
+
+    .comment-author-avatar span {
+        align-items: center;
+        background: var(--surface-hover);
+        color: var(--primary-soft);
+        display: inline-flex;
+        font-size: 0.85rem;
+        font-weight: 700;
+        height: 100%;
+        justify-content: center;
+        width: 100%;
     }
 
     .markdown-body > *:last-child {

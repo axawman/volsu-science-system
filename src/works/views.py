@@ -137,7 +137,7 @@ def all_works(request):
 
 
 def _visible_works_queryset_for_user(user):
-    works = Work.objects.select_related("author", "section")
+    works = Work.objects.select_related("author", "author__profile", "section")
 
     if user.is_authenticated and user.profile.is_admin():
         return works.order_by("-created_at")
@@ -251,7 +251,7 @@ def work_detail(request, work_id):
     else:
         comment_form = WorkCommentForm()
 
-    versions = work.versions.prefetch_related("files", "uploaded_by").all()
+    versions = work.versions.select_related("uploaded_by", "uploaded_by__profile").prefetch_related("files").all()
     all_comments = (
         work.comments
         .select_related("author", "author__profile")
