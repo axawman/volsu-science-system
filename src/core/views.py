@@ -29,7 +29,7 @@ def home(request):
             "kind": "Встреча",
             "type": "meeting",
             "date": meeting.start_at,
-            "end_date": meeting.end_at,
+            "end_date": None,
             "location": meeting.location,
             "created_by": meeting.created_by,
         })
