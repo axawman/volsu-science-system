@@ -345,47 +345,51 @@
 
     .platform-news-control {
         align-items: center;
+        background: transparent;
+        border: 0;
+        color: var(--primary-soft);
+        display: inline-flex;
+        height: 100%;
+        justify-content: center;
+        opacity: 1;
+        top: 0;
+        width: 3.5rem;
+    }
+
+    .platform-news-control span {
+        align-items: center;
         background: var(--card-bg);
         border: 1px solid var(--border-soft);
         border-radius: 50%;
         box-shadow: var(--shadow-soft);
-        color: var(--primary-soft);
         display: inline-flex;
+        font-size: 1.4rem;
         height: 2rem;
         justify-content: center;
+        line-height: 1;
+        margin-top: -0.1rem;
         opacity: 0;
-        pointer-events: none;
-        top: 50%;
-        transform: translateY(-50%);
         transition: opacity 0.18s ease, background-color 0.18s ease, color 0.18s ease;
         width: 2rem;
     }
 
-    #platform-news-carousel:hover .platform-news-control,
-    #platform-news-carousel:focus-within .platform-news-control {
+    .platform-news-control:hover span,
+    .platform-news-control:focus-visible span {
         opacity: 0.92;
-        pointer-events: auto;
     }
 
-    .platform-news-control:hover,
-    .platform-news-control:focus {
+    .platform-news-control:hover span,
+    .platform-news-control:focus-visible span {
         background: var(--surface-hover);
         color: var(--primary-deep);
-        opacity: 1;
-    }
-
-    .platform-news-control span {
-        font-size: 1.4rem;
-        line-height: 1;
-        margin-top: -0.1rem;
     }
 
     .platform-news-control.carousel-control-prev {
-        left: -0.35rem;
+        left: -0.75rem;
     }
 
     .platform-news-control.carousel-control-next {
-        right: -0.35rem;
+        right: -0.75rem;
     }
 
     .calendar-legend {
@@ -512,10 +516,14 @@
 
         .platform-news-control {
             bottom: 0.2rem;
-            opacity: 0.92;
-            pointer-events: auto;
+            height: 2rem;
             top: auto;
             transform: none;
+            width: 2rem;
+        }
+
+        .platform-news-control span {
+            opacity: 0.92;
         }
 
         .platform-news-control.carousel-control-prev {
