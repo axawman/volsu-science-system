@@ -80,12 +80,33 @@
                                 <button class="btn btn-outline-primary" type="button" id="mobile-edit-message">
                                     Редактировать
                                 </button>
-                                <form method="post" id="mobile-delete-me-form">
+                                <button class="btn btn-outline-danger" type="button" id="mobile-delete-message">
+                                    Удалить
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal fade" id="deleteChoiceModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered modal-sm">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h2 class="modal-title h6 mb-0">Удалить сообщение</h2>
+                            <button type="button"
+                                    class="btn-close"
+                                    data-bs-dismiss="modal"
+                                    aria-label="Закрыть"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="d-grid gap-2">
+                                <form method="post" id="delete-me-form">
                                     {% csrf_token %}
                                     <input type="hidden" name="scope" value="me">
                                     <button class="btn btn-outline-danger w-100" type="submit">Удалить у меня</button>
                                 </form>
-                                <form method="post" id="mobile-delete-all-form">
+                                <form method="post" id="delete-all-form">
                                     {% csrf_token %}
                                     <input type="hidden" name="scope" value="all">
                                     <button class="btn btn-outline-danger w-100" type="submit">Удалить у всех</button>
@@ -253,9 +274,13 @@
     .group-message {
         align-items: flex-end;
         display: flex;
-        gap: 0.7rem;
+        gap: 0.65rem;
         max-width: min(78%, 680px);
         position: relative;
+    }
+
+    .group-message.is-grouped {
+        margin-top: -0.45rem;
     }
 
     .group-message.is-own {
@@ -268,8 +293,20 @@
         width: 34px;
     }
 
-    .group-message-avatar-link {
+    .group-message-avatar-link,
+    .group-message-avatar-spacer {
         display: inline-flex;
+        flex: 0 0 34px;
+        width: 34px;
+    }
+
+    .group-message.is-grouped .group-message-bubble {
+        border-top-left-radius: 0.45rem;
+    }
+
+    .group-message.is-own.is-grouped .group-message-bubble {
+        border-top-left-radius: 0.75rem;
+        border-top-right-radius: 0.45rem;
     }
 
     .group-message-bubble {
@@ -290,6 +327,11 @@
         flex-wrap: wrap;
         gap: 0.45rem;
         margin-bottom: 0.25rem;
+    }
+
+    .group-message-meta.is-compact {
+        justify-content: flex-end;
+        margin-bottom: 0.15rem;
     }
 
     .group-message-meta a {
@@ -509,10 +551,12 @@
     const replyText = document.getElementById("reply-compose-text");
     const replyClear = document.getElementById("reply-compose-clear");
     const actionsModalEl = document.getElementById("messageActionsModal");
+    const deleteChoiceModalEl = document.getElementById("deleteChoiceModal");
     const mobileReplyButton = document.getElementById("mobile-reply-message");
     const mobileEditButton = document.getElementById("mobile-edit-message");
-    const mobileDeleteMeForm = document.getElementById("mobile-delete-me-form");
-    const mobileDeleteAllForm = document.getElementById("mobile-delete-all-form");
+    const mobileDeleteButton = document.getElementById("mobile-delete-message");
+    const deleteMeForm = document.getElementById("delete-me-form");
+    const deleteAllForm = document.getElementById("delete-all-form");
     const readersModalEl = document.getElementById("readersModal");
     const readersModalBody = document.getElementById("readers-modal-body");
     const onlinePill = document.getElementById("group-online-pill");
@@ -520,6 +564,7 @@
     const updatesUrl = "{% url 'group_chat_updates' %}";
     let activeMessage = null;
     let actionsModal = null;
+    let deleteChoiceModal = null;
     let readersModal = null;
 
     function getActionsModal() {
@@ -538,8 +583,12 @@
         return readersModal;
     }
 
-    function getCsrfToken(form) {
-        return form.querySelector("input[name='csrfmiddlewaretoken']").value;
+    function getDeleteChoiceModal() {
+        if (!deleteChoiceModal && deleteChoiceModalEl && window.bootstrap) {
+            deleteChoiceModal = new window.bootstrap.Modal(deleteChoiceModalEl);
+        }
+
+        return deleteChoiceModal;
     }
 
     if (messages) {
@@ -636,6 +685,21 @@
         form.querySelector("textarea").focus();
     }
 
+    function openDeleteChoice(row) {
+        const modal = getDeleteChoiceModal();
+        const isOwn = row.dataset.messageOwn === "1";
+
+        if (!modal) {
+            return;
+        }
+
+        activeMessage = row;
+        deleteMeForm.action = row.dataset.deleteUrl;
+        deleteAllForm.action = row.dataset.deleteUrl;
+        deleteAllForm.hidden = !isOwn;
+        modal.show();
+    }
+
     function bindMessageActions() {
         document.querySelectorAll("[data-edit-message]").forEach((button) => {
             button.addEventListener("click", () => {
@@ -653,12 +717,12 @@
             });
         });
 
-        document.querySelectorAll("[data-delete-form]").forEach((form) => {
-            form.addEventListener("submit", async (event) => {
-                event.preventDefault();
+        document.querySelectorAll("[data-open-delete-choice]").forEach((button) => {
+            button.addEventListener("click", () => {
+                const row = getMessageRow(button.dataset.openDeleteChoice);
 
-                if (window.confirm("Удалить сообщение?")) {
-                    await submitAjaxForm(form);
+                if (row) {
+                    openDeleteChoice(row);
                 }
             });
         });
@@ -721,9 +785,6 @@
                 activeMessage = row;
                 const isOwn = row.dataset.messageOwn === "1";
                 mobileEditButton.hidden = !isOwn;
-                mobileDeleteAllForm.hidden = !isOwn;
-                mobileDeleteMeForm.action = row.dataset.deleteUrl;
-                mobileDeleteAllForm.action = row.dataset.deleteUrl;
                 modal.show();
             });
         });
@@ -772,24 +833,24 @@
         });
     }
 
-    if (mobileDeleteMeForm) {
-        mobileDeleteMeForm.addEventListener("submit", async (event) => {
+    if (deleteMeForm) {
+        deleteMeForm.addEventListener("submit", async (event) => {
             event.preventDefault();
 
             if (window.confirm("Удалить сообщение у вас?")) {
-                await submitAjaxForm(mobileDeleteMeForm);
-                getActionsModal().hide();
+                await submitAjaxForm(deleteMeForm);
+                getDeleteChoiceModal().hide();
             }
         });
     }
 
-    if (mobileDeleteAllForm) {
-        mobileDeleteAllForm.addEventListener("submit", async (event) => {
+    if (deleteAllForm) {
+        deleteAllForm.addEventListener("submit", async (event) => {
             event.preventDefault();
 
             if (window.confirm("Удалить сообщение у всех?")) {
-                await submitAjaxForm(mobileDeleteAllForm);
-                getActionsModal().hide();
+                await submitAjaxForm(deleteAllForm);
+                getDeleteChoiceModal().hide();
             }
         });
     }
@@ -816,6 +877,15 @@
             if (activeMessage) {
                 showEditForm(activeMessage.dataset.messageId);
                 getActionsModal().hide();
+            }
+        });
+    }
+
+    if (mobileDeleteButton) {
+        mobileDeleteButton.addEventListener("click", () => {
+            if (activeMessage) {
+                getActionsModal().hide();
+                openDeleteChoice(activeMessage);
             }
         });
     }

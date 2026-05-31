@@ -323,6 +323,11 @@ def _get_group_chat_messages(study_group, user):
             for reader in message.read_by.all()
         )
 
+    previous_author_id = None
+    for message in chat_messages:
+        message.starts_author_group = message.author_id != previous_author_id
+        previous_author_id = message.author_id
+
     return chat_messages
 
 

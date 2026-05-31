@@ -1,5 +1,7 @@
 {% for message in chat_messages %}
-    <article class="group-message {% if message.author == request.user %}is-own{% endif %}"
+    <article class="group-message
+                    {% if message.author == request.user %}is-own{% endif %}
+                    {% if not message.starts_author_group %}is-grouped{% endif %}"
              id="message-{{ message.id }}"
              data-message-row
              data-message-id="{{ message.id }}"
@@ -9,15 +11,19 @@
              data-edit-url="{% url 'edit_group_chat_message' message.id %}"
              data-delete-url="{% url 'delete_group_chat_message' message.id %}"
              data-readers-url="{% url 'group_chat_readers' message.id %}">
-        <a class="group-message-avatar-link" href="{% url 'public_profile' message.author.username %}">
-            {% if message.author.profile.photo %}
-                <img src="{{ message.author.profile.photo.url }}" class="group-message-avatar" alt="Фото автора">
-            {% else %}
-                <span class="group-message-avatar group-message-avatar-placeholder">
-                    {{ message.author.profile.avatar_initial }}
-                </span>
-            {% endif %}
-        </a>
+        {% if message.starts_author_group %}
+            <a class="group-message-avatar-link" href="{% url 'public_profile' message.author.username %}">
+                {% if message.author.profile.photo %}
+                    <img src="{{ message.author.profile.photo.url }}" class="group-message-avatar" alt="Фото автора">
+                {% else %}
+                    <span class="group-message-avatar group-message-avatar-placeholder">
+                        {{ message.author.profile.avatar_initial }}
+                    </span>
+                {% endif %}
+            </a>
+        {% else %}
+            <span class="group-message-avatar-spacer" aria-hidden="true"></span>
+        {% endif %}
         <div class="group-message-bubble">
             {% if message.reply_to %}
                 <a class="group-message-reply-preview" href="#message-{{ message.reply_to.id }}" data-scroll-reply>
@@ -30,17 +36,23 @@
                 </a>
             {% endif %}
             <div class="group-message-content">
-                <div class="group-message-meta">
-                    <a href="{% url 'public_profile' message.author.username %}">
-                        {{ message.author.profile.short_name }}
-                    </a>
-                    <time datetime="{{ message.created_at|date:'c' }}">
-                        {{ message.created_at|date:"d.m.Y H:i" }}
-                    </time>
-                    {% if message.edited_at %}
+                {% if message.starts_author_group %}
+                    <div class="group-message-meta">
+                        <a href="{% url 'public_profile' message.author.username %}">
+                            {{ message.author.profile.short_name }}
+                        </a>
+                        <time datetime="{{ message.created_at|date:'c' }}">
+                            {{ message.created_at|date:"d.m.Y H:i" }}
+                        </time>
+                        {% if message.edited_at %}
+                            <span class="group-message-edited">изменено</span>
+                        {% endif %}
+                    </div>
+                {% elif message.edited_at %}
+                    <div class="group-message-meta is-compact">
                         <span class="group-message-edited">изменено</span>
-                    {% endif %}
-                </div>
+                    </div>
+                {% endif %}
                 {% if message.is_deleted %}
                     <div class="group-message-text is-deleted">Сообщение удалено</div>
                 {% else %}
@@ -54,20 +66,13 @@
                             Ответить
                         </button>
                     {% endif %}
-                    <form method="post" action="{% url 'delete_group_chat_message' message.id %}" data-delete-form>
-                        {% csrf_token %}
-                        <input type="hidden" name="scope" value="me">
-                        <button class="group-message-action" type="submit">Удалить у меня</button>
-                    </form>
+                    <button class="group-message-action" type="button" data-open-delete-choice="{{ message.id }}">
+                        Удалить
+                    </button>
                     {% if message.author == request.user and not message.is_deleted %}
                         <button class="group-message-action" type="button" data-edit-message="{{ message.id }}">
                             Редактировать
                         </button>
-                        <form method="post" action="{% url 'delete_group_chat_message' message.id %}" data-delete-form>
-                            {% csrf_token %}
-                            <input type="hidden" name="scope" value="all">
-                            <button class="group-message-action danger" type="submit">Удалить у всех</button>
-                        </form>
                     {% endif %}
                 </div>
                 {% if message.author == request.user %}
