@@ -34,7 +34,8 @@ FIXTURE_FILENAME = "data.json"
 METADATA_FILENAME = "metadata.json"
 MEDIA_DIRNAME = "media"
 REGISTRATION_CODE_SESSION_KEY = "registration_email_code"
-REGISTRATION_CODE_TTL_MINUTES = 1
+REGISTRATION_CODE_TTL_MINUTES = 5
+REGISTRATION_CODE_RESEND_COOLDOWN_SECONDS = 60
 
 EXCLUDED_DUMPDATA_MODELS = [
     "admin.logentry",
@@ -91,6 +92,8 @@ def _registration_code_is_valid(request, email, code):
 @require_POST
 def send_registration_code(request):
     email = _normalize_email(request.POST.get("email"))
+    existing_verification = request.session.get(REGISTRATION_CODE_SESSION_KEY) or {}
+    sent_at = existing_verification.get("sent_at")
 
     if not email.endswith("@volsu.ru"):
         return JsonResponse({"error": "Введите почту в домене @volsu.ru."}, status=400)
@@ -98,15 +101,22 @@ def send_registration_code(request):
     if User.objects.filter(email__iexact=email).exists():
         return JsonResponse({"error": "Пользователь с такой почтой уже зарегистрирован."}, status=400)
 
-    code = f"{secrets.randbelow(1000000):06d}"
-    expires_at = timezone.now() + timedelta(minutes=REGISTRATION_CODE_TTL_MINUTES)
+    if existing_verification.get("email") == email and sent_at:
+        sent_at = datetime.fromisoformat(sent_at)
+        if timezone.is_naive(sent_at):
+            sent_at = timezone.make_aware(sent_at)
 
-    request.session[REGISTRATION_CODE_SESSION_KEY] = {
-        "email": email,
-        "code": code,
-        "expires_at": expires_at.isoformat(),
-    }
-    request.session.modified = True
+        resend_available_at = sent_at + timedelta(seconds=REGISTRATION_CODE_RESEND_COOLDOWN_SECONDS)
+        if resend_available_at > timezone.now():
+            retry_after = int((resend_available_at - timezone.now()).total_seconds()) + 1
+            return JsonResponse({
+                "error": "Отправить код заново можно через минуту.",
+                "retry_after": retry_after,
+            }, status=429)
+
+    code = f"{secrets.randbelow(1000000):06d}"
+    now = timezone.now()
+    expires_at = now + timedelta(minutes=REGISTRATION_CODE_TTL_MINUTES)
 
     try:
         send_mail(
@@ -119,7 +129,18 @@ def send_registration_code(request):
     except (BadHeaderError, OSError, smtplib.SMTPException, TimeoutError) as error:
         return JsonResponse({"error": f"Не удалось отправить код: {error}"}, status=502)
 
-    return JsonResponse({"message": "Код отправлен на почту."})
+    request.session[REGISTRATION_CODE_SESSION_KEY] = {
+        "email": email,
+        "code": code,
+        "expires_at": expires_at.isoformat(),
+        "sent_at": now.isoformat(),
+    }
+    request.session.modified = True
+
+    return JsonResponse({
+        "message": "Код отправлен на почту.",
+        "resend_after": REGISTRATION_CODE_RESEND_COOLDOWN_SECONDS,
+    })
 
 
 @require_POST

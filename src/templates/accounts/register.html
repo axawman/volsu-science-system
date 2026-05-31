@@ -41,6 +41,13 @@
                                     data-url="{% url 'send_registration_code' %}">
                                 Подтвердить
                             </button>
+                            <button type="button"
+                                    class="btn btn-outline-secondary d-none"
+                                    id="resend-code-btn"
+                                    data-url="{% url 'send_registration_code' %}"
+                                    disabled>
+                                Отправить заново <span id="resend-countdown">(01:00)</span>
+                            </button>
                         </div>
                         {% if form.email.errors %}
                             <div class="text-danger small mt-1">{{ form.email.errors }}</div>
@@ -119,11 +126,14 @@
     const codeInput = document.getElementById("email-verification-code");
     const statusEl = document.getElementById("verification-status");
     const sendButton = document.getElementById("send-code-btn");
+    const resendButton = document.getElementById("resend-code-btn");
+    const resendCountdown = document.getElementById("resend-countdown");
     const verifyButton = document.getElementById("verify-code-btn");
     const passwordSteps = document.querySelectorAll(".password-step");
     const passwordInputs = document.querySelectorAll("#{{ form.password1.id_for_label }}, #{{ form.password2.id_for_label }}");
     const submitButton = form?.querySelector('button[type="submit"]');
     const csrfToken = form?.querySelector('input[name="csrfmiddlewaretoken"]')?.value;
+    let resendTimerId = null;
 
     function setPasswordEnabled(enabled) {
         passwordSteps.forEach((step) => step.classList.toggle("is-disabled", !enabled));
@@ -140,6 +150,40 @@
         statusEl.textContent = message;
         statusEl.classList.toggle("text-danger", isError);
         statusEl.classList.toggle("text-success", !isError);
+    }
+
+    function formatCountdown(seconds) {
+        const minutes = Math.floor(seconds / 60).toString().padStart(2, "0");
+        const restSeconds = (seconds % 60).toString().padStart(2, "0");
+        return `${minutes}:${restSeconds}`;
+    }
+
+    function stopResendCountdown() {
+        if (resendTimerId) {
+            clearInterval(resendTimerId);
+            resendTimerId = null;
+        }
+    }
+
+    function startResendCountdown(seconds = 60) {
+        let remainingSeconds = seconds;
+
+        stopResendCountdown();
+        resendButton.classList.remove("d-none");
+        resendButton.disabled = true;
+        resendCountdown.classList.remove("d-none");
+        resendCountdown.textContent = `(${formatCountdown(remainingSeconds)})`;
+
+        resendTimerId = setInterval(() => {
+            remainingSeconds -= 1;
+            resendCountdown.textContent = `(${formatCountdown(Math.max(remainingSeconds, 0))})`;
+
+            if (remainingSeconds <= 0) {
+                stopResendCountdown();
+                resendButton.disabled = false;
+                resendCountdown.classList.add("d-none");
+            }
+        }, 1000);
     }
 
     async function postForm(url, data) {
@@ -165,24 +209,43 @@
 
     setPasswordEnabled(false);
 
-    sendButton?.addEventListener("click", async () => {
+    async function sendCode(button) {
         const data = new FormData();
         data.append("email", emailInput.value);
-        sendButton.disabled = true;
-        sendButton.textContent = "Отправка...";
+        const initialHtml = button.innerHTML;
+        let codeSent = false;
+        button.disabled = true;
+        button.innerHTML = "Отправка...";
 
         try {
-            const payload = await postForm(sendButton.dataset.url, data);
+            const payload = await postForm(button.dataset.url, data);
+            codeSent = true;
+            button.innerHTML = initialHtml;
+            button.disabled = false;
             codeBlock.classList.remove("d-none");
             codeInput.focus();
             setStatus(payload.message);
+            sendButton.classList.add("d-none");
+            startResendCountdown(payload.resend_after || 60);
         } catch (error) {
-            codeBlock.classList.add("d-none");
             setStatus(error.message, true);
+            if (button === sendButton) {
+                codeBlock.classList.add("d-none");
+            }
         } finally {
-            sendButton.disabled = false;
-            sendButton.textContent = "Подтвердить";
+            if (!codeSent) {
+                button.disabled = false;
+                button.innerHTML = initialHtml;
+            }
         }
+    }
+
+    sendButton?.addEventListener("click", async () => {
+        await sendCode(sendButton);
+    });
+
+    resendButton?.addEventListener("click", async () => {
+        await sendCode(resendButton);
     });
 
     verifyButton?.addEventListener("click", async () => {
@@ -209,6 +272,9 @@
         setPasswordEnabled(false);
         codeInput.value = "";
         codeBlock.classList.add("d-none");
+        sendButton.classList.remove("d-none");
+        resendButton.classList.add("d-none");
+        stopResendCountdown();
     });
 })();
 </script>
