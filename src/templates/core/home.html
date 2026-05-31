@@ -206,6 +206,23 @@
                     </article>
                 {% endfor %}
             </div>
+
+            {% if platform_news|length > 1 %}
+                <button class="carousel-control-prev platform-news-control"
+                        type="button"
+                        data-bs-target="#platform-news-carousel"
+                        data-bs-slide="prev"
+                        aria-label="Предыдущая новость">
+                    <span aria-hidden="true">‹</span>
+                </button>
+                <button class="carousel-control-next platform-news-control"
+                        type="button"
+                        data-bs-target="#platform-news-carousel"
+                        data-bs-slide="next"
+                        aria-label="Следующая новость">
+                    <span aria-hidden="true">›</span>
+                </button>
+            {% endif %}
         </div>
     </section>
 {% endif %}
@@ -305,6 +322,43 @@
         border-radius: 50%;
         height: 0.55rem;
         width: 0.55rem;
+    }
+
+    .platform-news-control {
+        align-items: center;
+        background: var(--card-bg);
+        border: 1px solid var(--border-soft);
+        border-radius: 50%;
+        box-shadow: var(--shadow-soft);
+        color: var(--primary-soft);
+        display: inline-flex;
+        height: 2rem;
+        justify-content: center;
+        opacity: 0.92;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 2rem;
+    }
+
+    .platform-news-control:hover,
+    .platform-news-control:focus {
+        background: var(--surface-hover);
+        color: var(--primary-deep);
+        opacity: 1;
+    }
+
+    .platform-news-control span {
+        font-size: 1.4rem;
+        line-height: 1;
+        margin-top: -0.1rem;
+    }
+
+    .platform-news-control.carousel-control-prev {
+        left: -0.35rem;
+    }
+
+    .platform-news-control.carousel-control-next {
+        right: -0.35rem;
     }
 
     .calendar-card {
