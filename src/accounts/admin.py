@@ -57,6 +57,24 @@ class UserAdmin(BaseUserAdmin):
             return obj.profile.role_name
         return "-"
 
+    def save_related(self, request, form, formsets, change):
+        super().save_related(request, form, formsets, change)
+        user = form.instance
+
+        if hasattr(user, "profile") and user.profile.role == "admin":
+            update_fields = []
+
+            if not user.is_staff:
+                user.is_staff = True
+                update_fields.append("is_staff")
+
+            if not user.is_superuser:
+                user.is_superuser = True
+                update_fields.append("is_superuser")
+
+            if update_fields:
+                user.save(update_fields=update_fields)
+
     @admin.action(description="Назначить администратором")
     def make_admin(self, request, queryset):
         updated = 0
@@ -67,6 +85,7 @@ class UserAdmin(BaseUserAdmin):
                 defaults={"full_name": user.username},
             )
             changed = False
+            user_update_fields = []
 
             if profile.role != "admin":
                 profile.role = "admin"
@@ -75,8 +94,16 @@ class UserAdmin(BaseUserAdmin):
 
             if not user.is_staff:
                 user.is_staff = True
-                user.save(update_fields=["is_staff"])
+                user_update_fields.append("is_staff")
                 changed = True
+
+            if not user.is_superuser:
+                user.is_superuser = True
+                user_update_fields.append("is_superuser")
+                changed = True
+
+            if user_update_fields:
+                user.save(update_fields=user_update_fields)
 
             if changed:
                 updated += 1
