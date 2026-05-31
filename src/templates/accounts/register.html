@@ -48,6 +48,11 @@
                                     disabled>
                                 Отправить заново <span id="resend-countdown">(01:00)</span>
                             </button>
+                            <button type="button"
+                                    class="btn btn-outline-secondary d-none"
+                                    id="change-email-btn">
+                                Изменить почту
+                            </button>
                         </div>
                         {% if form.email.errors %}
                             <div class="text-danger small mt-1">{{ form.email.errors }}</div>
@@ -128,12 +133,15 @@
     const sendButton = document.getElementById("send-code-btn");
     const resendButton = document.getElementById("resend-code-btn");
     const resendCountdown = document.getElementById("resend-countdown");
+    const changeEmailButton = document.getElementById("change-email-btn");
     const verifyButton = document.getElementById("verify-code-btn");
     const passwordSteps = document.querySelectorAll(".password-step");
     const passwordInputs = document.querySelectorAll("#{{ form.password1.id_for_label }}, #{{ form.password2.id_for_label }}");
     const submitButton = form?.querySelector('button[type="submit"]');
     const csrfToken = form?.querySelector('input[name="csrfmiddlewaretoken"]')?.value;
     let resendTimerId = null;
+    let resendRemainingSeconds = 0;
+    let cooldownEmail = "";
 
     function setPasswordEnabled(enabled) {
         passwordSteps.forEach((step) => step.classList.toggle("is-disabled", !enabled));
@@ -152,6 +160,38 @@
         statusEl.classList.toggle("text-success", !isError);
     }
 
+    function normalizeEmail(value) {
+        return (value || "").trim().toLowerCase();
+    }
+
+    function setEmailLocked(locked) {
+        emailInput.readOnly = locked;
+        emailInput.classList.toggle("bg-body-secondary", locked);
+        changeEmailButton.classList.toggle("d-none", !locked);
+    }
+
+    function resetVerificationState() {
+        setPasswordEnabled(false);
+        codeInput.value = "";
+        codeBlock.classList.add("d-none");
+    }
+
+    function updateEmailActions() {
+        const isCooldownEmail = normalizeEmail(emailInput.value) === cooldownEmail;
+        const isCoolingDown = isCooldownEmail && resendRemainingSeconds > 0;
+        const shouldShowResend = isCooldownEmail && (emailInput.readOnly || isCoolingDown);
+
+        sendButton.classList.toggle("d-none", shouldShowResend);
+        sendButton.disabled = false;
+        resendButton.classList.toggle("d-none", !shouldShowResend);
+        resendButton.disabled = isCoolingDown;
+
+        if (shouldShowResend) {
+            resendCountdown.classList.toggle("d-none", resendRemainingSeconds <= 0);
+            resendCountdown.textContent = `(${formatCountdown(Math.max(resendRemainingSeconds, 0))})`;
+        }
+    }
+
     function formatCountdown(seconds) {
         const minutes = Math.floor(seconds / 60).toString().padStart(2, "0");
         const restSeconds = (seconds % 60).toString().padStart(2, "0");
@@ -163,25 +203,21 @@
             clearInterval(resendTimerId);
             resendTimerId = null;
         }
+        resendRemainingSeconds = 0;
     }
 
     function startResendCountdown(seconds = 60) {
-        let remainingSeconds = seconds;
-
         stopResendCountdown();
-        resendButton.classList.remove("d-none");
-        resendButton.disabled = true;
-        resendCountdown.classList.remove("d-none");
-        resendCountdown.textContent = `(${formatCountdown(remainingSeconds)})`;
+        resendRemainingSeconds = seconds;
+        updateEmailActions();
 
         resendTimerId = setInterval(() => {
-            remainingSeconds -= 1;
-            resendCountdown.textContent = `(${formatCountdown(Math.max(remainingSeconds, 0))})`;
+            resendRemainingSeconds -= 1;
+            updateEmailActions();
 
-            if (remainingSeconds <= 0) {
+            if (resendRemainingSeconds <= 0) {
                 stopResendCountdown();
-                resendButton.disabled = false;
-                resendCountdown.classList.add("d-none");
+                updateEmailActions();
             }
         }, 1000);
     }
@@ -201,7 +237,9 @@
             : {error: await response.text()};
 
         if (!response.ok) {
-            throw new Error(payload.error || "Ошибка запроса.");
+            const requestError = new Error(payload.error || "Ошибка запроса.");
+            requestError.retryAfter = payload.retry_after;
+            throw requestError;
         }
 
         return payload;
@@ -225,10 +263,19 @@
             codeBlock.classList.remove("d-none");
             codeInput.focus();
             setStatus(payload.message);
-            sendButton.classList.add("d-none");
+            cooldownEmail = normalizeEmail(emailInput.value);
+            setEmailLocked(true);
             startResendCountdown(payload.resend_after || 60);
         } catch (error) {
             setStatus(error.message, true);
+            if (error.retryAfter) {
+                cooldownEmail = normalizeEmail(emailInput.value);
+                codeBlock.classList.remove("d-none");
+                setEmailLocked(true);
+                startResendCountdown(error.retryAfter);
+                return;
+            }
+
             if (button === sendButton) {
                 codeBlock.classList.add("d-none");
             }
@@ -246,6 +293,13 @@
 
     resendButton?.addEventListener("click", async () => {
         await sendCode(resendButton);
+    });
+
+    changeEmailButton?.addEventListener("click", () => {
+        setEmailLocked(false);
+        resetVerificationState();
+        updateEmailActions();
+        emailInput.focus();
     });
 
     verifyButton?.addEventListener("click", async () => {
@@ -269,12 +323,8 @@
     });
 
     emailInput?.addEventListener("input", () => {
-        setPasswordEnabled(false);
-        codeInput.value = "";
-        codeBlock.classList.add("d-none");
-        sendButton.classList.remove("d-none");
-        resendButton.classList.add("d-none");
-        stopResendCountdown();
+        resetVerificationState();
+        updateEmailActions();
     });
 })();
 </script>

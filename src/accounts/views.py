@@ -34,6 +34,7 @@ FIXTURE_FILENAME = "data.json"
 METADATA_FILENAME = "metadata.json"
 MEDIA_DIRNAME = "media"
 REGISTRATION_CODE_SESSION_KEY = "registration_email_code"
+REGISTRATION_CODE_COOLDOWNS_SESSION_KEY = "registration_email_code_cooldowns"
 REGISTRATION_CODE_TTL_MINUTES = 5
 REGISTRATION_CODE_RESEND_COOLDOWN_SECONDS = 60
 
@@ -92,8 +93,8 @@ def _registration_code_is_valid(request, email, code):
 @require_POST
 def send_registration_code(request):
     email = _normalize_email(request.POST.get("email"))
-    existing_verification = request.session.get(REGISTRATION_CODE_SESSION_KEY) or {}
-    sent_at = existing_verification.get("sent_at")
+    cooldowns = request.session.get(REGISTRATION_CODE_COOLDOWNS_SESSION_KEY) or {}
+    sent_at = cooldowns.get(email)
 
     if not email.endswith("@volsu.ru"):
         return JsonResponse({"error": "Введите почту в домене @volsu.ru."}, status=400)
@@ -101,7 +102,7 @@ def send_registration_code(request):
     if User.objects.filter(email__iexact=email).exists():
         return JsonResponse({"error": "Пользователь с такой почтой уже зарегистрирован."}, status=400)
 
-    if existing_verification.get("email") == email and sent_at:
+    if sent_at:
         sent_at = datetime.fromisoformat(sent_at)
         if timezone.is_naive(sent_at):
             sent_at = timezone.make_aware(sent_at)
@@ -135,6 +136,19 @@ def send_registration_code(request):
         "expires_at": expires_at.isoformat(),
         "sent_at": now.isoformat(),
     }
+
+    fresh_cooldowns = {}
+    for cooldown_email, cooldown_sent_at in cooldowns.items():
+        cooldown_sent_at = datetime.fromisoformat(cooldown_sent_at)
+        if timezone.is_naive(cooldown_sent_at):
+            cooldown_sent_at = timezone.make_aware(cooldown_sent_at)
+
+        cooldown_expires_at = cooldown_sent_at + timedelta(seconds=REGISTRATION_CODE_RESEND_COOLDOWN_SECONDS)
+        if cooldown_expires_at > now:
+            fresh_cooldowns[cooldown_email] = cooldown_sent_at.isoformat()
+
+    fresh_cooldowns[email] = now.isoformat()
+    request.session[REGISTRATION_CODE_COOLDOWNS_SESSION_KEY] = fresh_cooldowns
     request.session.modified = True
 
     return JsonResponse({
@@ -181,6 +195,7 @@ def register_view(request):
 
             login(request, user)
             request.session.pop(REGISTRATION_CODE_SESSION_KEY, None)
+            request.session.pop(REGISTRATION_CODE_COOLDOWNS_SESSION_KEY, None)
             request.session.pop("registration_email_verified", None)
             return redirect("/")
     else:
