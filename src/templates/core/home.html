@@ -271,17 +271,26 @@
         position: relative;
     }
 
+    #platform-news-carousel .carousel-inner {
+        height: 320px;
+    }
+
+    #platform-news-carousel .carousel-item {
+        height: 100%;
+    }
+
     .platform-news-slide {
         align-items: stretch;
         display: grid;
         gap: 1.25rem;
         grid-template-columns: minmax(220px, 0.95fr) minmax(0, 1.15fr);
-        min-height: 260px;
+        height: 100%;
+        min-height: 0;
     }
 
     .platform-news-slide.text-only {
-        display: block;
-        min-height: 180px;
+        display: flex;
+        min-height: 0;
     }
 
     .platform-news-media {
@@ -298,8 +307,12 @@
     }
 
     .platform-news-content {
-        align-self: center;
+        align-self: stretch;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
         min-width: 0;
+        overflow: hidden;
         padding-bottom: 2rem;
     }
 
@@ -313,6 +326,8 @@
     .platform-news-text {
         color: var(--text-muted);
         line-height: 1.55;
+        overflow: auto;
+        padding-right: 0.25rem;
         white-space: pre-wrap;
     }
 
@@ -491,13 +506,17 @@
             position: static;
         }
 
+        #platform-news-carousel .carousel-inner {
+            height: 520px;
+        }
+
         .platform-news-slide {
             grid-template-columns: 1fr;
             padding-bottom: 2.5rem;
         }
 
         .platform-news-media {
-            aspect-ratio: 16 / 9;
+            height: 240px;
         }
 
         .platform-news-control {
@@ -514,6 +533,38 @@
 
         .platform-news-control.carousel-control-next {
             right: 0.5rem;
+        }
+    }
+
+    @media (max-width: 575px) {
+        .platform-news {
+            padding: 1rem;
+        }
+
+        #platform-news-carousel .carousel-inner {
+            height: 470px;
+        }
+
+        .platform-news-slide {
+            gap: 0.85rem;
+        }
+
+        .platform-news-media {
+            height: 190px;
+        }
+
+        .platform-news-content {
+            padding-bottom: 2.4rem;
+        }
+
+        .platform-news-title {
+            font-size: 1.08rem;
+            margin-bottom: 0.55rem;
+        }
+
+        .platform-news-text {
+            font-size: 0.92rem;
+            line-height: 1.45;
         }
     }
 </style>
