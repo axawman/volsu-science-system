@@ -10,19 +10,67 @@ from .models import Profile
 apps.get_app_config("auth").verbose_name = "Пользователи"
 
 
+def user_is_admin(user):
+    if user.is_superuser or user.is_staff:
+        return True
+    return hasattr(user, "profile") and user.profile.role == "admin"
+
+
+def can_manage_admin_target(actor, target):
+    if actor == target:
+        return False
+
+    if not hasattr(target, "profile") or not user_is_admin(target):
+        return True
+
+    if target.profile.is_primary_admin:
+        return False
+
+    if hasattr(actor, "profile") and actor.profile.is_primary_admin:
+        return True
+
+    return target.profile.admin_granted_by_id == actor.id
+
+
+def other_admins_exist(target):
+    return (
+        Profile.objects
+        .exclude(user=target)
+        .filter(role="admin", user__is_staff=True, user__is_superuser=True)
+        .exists()
+    )
+
+
 class ProfileInline(admin.StackedInline):
     model = Profile
+    fk_name = "user"
     can_delete = False
     extra = 0
-    fields = ("full_name", "role", "bio", "photo", "created_at")
-    readonly_fields = ("created_at",)
+    fields = (
+        "full_name",
+        "role",
+        "bio",
+        "photo",
+        "is_primary_admin",
+        "admin_granted_by",
+        "created_at",
+    )
+    readonly_fields = ("is_primary_admin", "admin_granted_by", "created_at")
     verbose_name = "Профиль"
     verbose_name_plural = "Профиль"
+
+    def get_readonly_fields(self, request, obj=None):
+        readonly_fields = list(super().get_readonly_fields(request, obj))
+
+        if obj is not None and not can_manage_admin_target(request.user, obj):
+            readonly_fields.append("role")
+
+        return readonly_fields
 
 
 class UserAdmin(BaseUserAdmin):
     inlines = (ProfileInline,)
-    actions = ("make_admin",)
+    actions = ("make_admin", "remove_admin")
     list_display = (
         "username",
         "email",
@@ -57,6 +105,24 @@ class UserAdmin(BaseUserAdmin):
             return obj.profile.role_name
         return "-"
 
+    def get_readonly_fields(self, request, obj=None):
+        readonly_fields = list(super().get_readonly_fields(request, obj))
+
+        if obj is not None and not can_manage_admin_target(request.user, obj):
+            readonly_fields.extend(["is_staff", "is_superuser", "user_permissions"])
+
+        return readonly_fields
+
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        actions.pop("delete_selected", None)
+        return actions
+
+    def has_delete_permission(self, request, obj=None):
+        if obj is not None and not can_manage_admin_target(request.user, obj):
+            return False
+        return super().has_delete_permission(request, obj)
+
     def save_related(self, request, form, formsets, change):
         super().save_related(request, form, formsets, change)
         user = form.instance
@@ -75,6 +141,10 @@ class UserAdmin(BaseUserAdmin):
             if update_fields:
                 user.save(update_fields=update_fields)
 
+            if not user.profile.is_primary_admin and user.profile.admin_granted_by_id is None:
+                user.profile.admin_granted_by = request.user
+                user.profile.save(update_fields=["admin_granted_by"])
+
     @admin.action(description="Назначить администратором")
     def make_admin(self, request, queryset):
         updated = 0
@@ -85,12 +155,8 @@ class UserAdmin(BaseUserAdmin):
                 defaults={"full_name": user.username},
             )
             changed = False
+            profile_update_fields = []
             user_update_fields = []
-
-            if profile.role != "admin":
-                profile.role = "admin"
-                profile.save(update_fields=["role"])
-                changed = True
 
             if not user.is_staff:
                 user.is_staff = True
@@ -105,6 +171,19 @@ class UserAdmin(BaseUserAdmin):
             if user_update_fields:
                 user.save(update_fields=user_update_fields)
 
+            if profile.role != "admin":
+                profile.role = "admin"
+                profile_update_fields.append("role")
+                changed = True
+
+            if not profile.is_primary_admin and profile.admin_granted_by_id is None:
+                profile.admin_granted_by = request.user
+                profile_update_fields.append("admin_granted_by")
+                changed = True
+
+            if profile_update_fields:
+                profile.save(update_fields=profile_update_fields)
+
             if changed:
                 updated += 1
 
@@ -113,6 +192,52 @@ class UserAdmin(BaseUserAdmin):
             f"Администратором назначено пользователей: {updated}.",
             messages.SUCCESS,
         )
+
+    @admin.action(description="Убрать права администратора")
+    def remove_admin(self, request, queryset):
+        updated = 0
+        skipped = 0
+
+        for user in queryset.select_related("profile"):
+            profile, _ = Profile.objects.get_or_create(
+                user=user,
+                defaults={"full_name": user.username},
+            )
+
+            if not profile.is_admin():
+                skipped += 1
+                continue
+
+            if not can_manage_admin_target(request.user, user):
+                skipped += 1
+                continue
+
+            if not other_admins_exist(user):
+                skipped += 1
+                continue
+
+            user.is_staff = False
+            user.is_superuser = False
+            user.save(update_fields=["is_staff", "is_superuser"])
+
+            profile.role = "student"
+            profile.admin_granted_by = None
+            profile.save(update_fields=["role", "admin_granted_by"])
+            updated += 1
+
+        if updated:
+            self.message_user(
+                request,
+                f"Права администратора сняты у пользователей: {updated}.",
+                messages.SUCCESS,
+            )
+
+        if skipped:
+            self.message_user(
+                request,
+                f"Не удалось снять права администратора у пользователей: {skipped}.",
+                messages.WARNING,
+            )
 
 
 admin.site.unregister(User)

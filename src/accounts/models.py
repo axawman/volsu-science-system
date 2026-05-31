@@ -15,6 +15,15 @@ class Profile(models.Model):
     bio = models.TextField("О себе", blank=True)
     photo = models.ImageField("Фотография", upload_to="profile_photos/", blank=True, null=True)
     created_at = models.DateTimeField("Дата создания", auto_now_add=True)
+    is_primary_admin = models.BooleanField("Первичный администратор", default=False)
+    admin_granted_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="granted_admin_profiles",
+        verbose_name="Кто назначил администратором",
+    )
 
     class Meta:
         verbose_name = "Профиль"
