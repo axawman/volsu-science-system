@@ -1,0 +1,305 @@
+{% extends "base.html" %}
+
+{% block title %}Чат группы{% endblock %}
+
+{% block content %}
+<div class="group-chat-shell">
+    {% if study_group %}
+        <section class="card-soft group-chat-card">
+            <header class="group-chat-header">
+                <button class="group-chat-title" type="button" data-bs-toggle="collapse" data-bs-target="#groupMembers">
+                    {{ study_group.display_name }}
+                </button>
+                <span class="text-soft small">{{ members|length }} участников</span>
+            </header>
+
+            <div class="collapse group-members-panel" id="groupMembers">
+                <div class="group-members-grid">
+                    {% for member in members %}
+                        <a class="group-member" href="{% url 'public_profile' member.user.username %}">
+                            {% if member.photo %}
+                                <img src="{{ member.photo.url }}" class="group-member-avatar" alt="Фото участника">
+                            {% else %}
+                                <span class="group-member-avatar group-member-avatar-placeholder">
+                                    {{ member.avatar_initial }}
+                                </span>
+                            {% endif %}
+                            <span class="group-member-name">{{ member.short_name }}</span>
+                        </a>
+                    {% empty %}
+                        <p class="text-soft mb-0">В этой группе пока нет участников.</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="group-chat-messages" id="group-chat-messages">
+                {% for message in messages %}
+                    <article class="group-message {% if message.author == request.user %}is-own{% endif %}">
+                        <a class="group-message-avatar-link" href="{% url 'public_profile' message.author.username %}">
+                            {% if message.author.profile.photo %}
+                                <img src="{{ message.author.profile.photo.url }}"
+                                     class="group-message-avatar"
+                                     alt="Фото автора">
+                            {% else %}
+                                <span class="group-message-avatar group-message-avatar-placeholder">
+                                    {{ message.author.profile.avatar_initial }}
+                                </span>
+                            {% endif %}
+                        </a>
+                        <div class="group-message-bubble">
+                            <div class="group-message-meta">
+                                <a href="{% url 'public_profile' message.author.username %}">
+                                    {{ message.author.profile.short_name }}
+                                </a>
+                                <time datetime="{{ message.created_at|date:'c' }}">
+                                    {{ message.created_at|date:"d.m.Y H:i" }}
+                                </time>
+                            </div>
+                            <div class="group-message-text">{{ message.text|linebreaksbr }}</div>
+                        </div>
+                    </article>
+                {% empty %}
+                    <div class="group-chat-empty">
+                        <p class="mb-0">Сообщений пока нет.</p>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <form class="group-chat-form" method="post">
+                {% csrf_token %}
+                <textarea name="text"
+                          class="form-control"
+                          rows="2"
+                          maxlength="2000"
+                          placeholder="Написать сообщение"
+                          required></textarea>
+                <button class="btn btn-primary" type="submit">Отправить</button>
+            </form>
+        </section>
+    {% else %}
+        <section class="card-soft p-4">
+            <h1 class="section-title mb-2">Чат группы</h1>
+            <p class="text-soft mb-0">
+                Для вашей почты не удалось определить учебную группу.
+            </p>
+        </section>
+    {% endif %}
+</div>
+
+<style>
+    .group-chat-shell {
+        margin: 0 auto;
+        max-width: 920px;
+    }
+
+    .group-chat-card {
+        display: grid;
+        grid-template-rows: auto auto minmax(420px, 62vh) auto;
+        overflow: hidden;
+    }
+
+    .group-chat-header {
+        align-items: center;
+        border-bottom: 1px solid var(--border-soft);
+        display: flex;
+        justify-content: space-between;
+        padding: 1rem 1.25rem;
+    }
+
+    .group-chat-title {
+        background: none;
+        border: 0;
+        color: var(--primary-soft);
+        font-size: 1.2rem;
+        font-weight: 700;
+        padding: 0;
+    }
+
+    .group-members-panel {
+        border-bottom: 1px solid var(--border-soft);
+        padding: 1rem 1.25rem;
+    }
+
+    .group-members-grid {
+        display: grid;
+        gap: 0.75rem;
+        grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    }
+
+    .group-member {
+        align-items: center;
+        color: var(--text-main);
+        display: flex;
+        gap: 0.65rem;
+        min-width: 0;
+        text-decoration: none;
+    }
+
+    .group-member:hover {
+        color: var(--primary-soft);
+    }
+
+    .group-member-avatar,
+    .group-message-avatar {
+        border-radius: 50%;
+        flex: 0 0 auto;
+        object-fit: cover;
+    }
+
+    .group-member-avatar {
+        height: 38px;
+        width: 38px;
+    }
+
+    .group-member-avatar-placeholder,
+    .group-message-avatar-placeholder {
+        align-items: center;
+        background: var(--surface-hover);
+        color: var(--primary-deep);
+        display: inline-flex;
+        font-weight: 700;
+        justify-content: center;
+    }
+
+    .group-member-name {
+        font-weight: 600;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .group-chat-messages {
+        background: var(--surface-muted);
+        display: flex;
+        flex-direction: column;
+        gap: 0.9rem;
+        overflow-y: auto;
+        padding: 1.25rem;
+    }
+
+    .group-message {
+        align-items: flex-end;
+        display: flex;
+        gap: 0.7rem;
+        max-width: min(78%, 680px);
+    }
+
+    .group-message.is-own {
+        align-self: flex-end;
+        flex-direction: row-reverse;
+    }
+
+    .group-message-avatar {
+        height: 34px;
+        width: 34px;
+    }
+
+    .group-message-avatar-link {
+        display: inline-flex;
+    }
+
+    .group-message-bubble {
+        background: var(--card-bg);
+        border: 1px solid var(--border-soft);
+        border-radius: 0.75rem;
+        padding: 0.65rem 0.8rem;
+    }
+
+    .group-message.is-own .group-message-bubble {
+        background: var(--surface-hover);
+    }
+
+    .group-message-meta {
+        align-items: baseline;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .group-message-meta a {
+        color: var(--primary-soft);
+        font-size: 0.88rem;
+        font-weight: 700;
+        text-decoration: none;
+    }
+
+    .group-message-meta time {
+        color: var(--text-muted);
+        font-size: 0.76rem;
+    }
+
+    .group-message-text {
+        overflow-wrap: anywhere;
+        white-space: normal;
+    }
+
+    .group-chat-empty {
+        align-self: center;
+        color: var(--text-muted);
+        margin: auto;
+        text-align: center;
+    }
+
+    .group-chat-form {
+        align-items: flex-end;
+        border-top: 1px solid var(--border-soft);
+        display: grid;
+        gap: 0.75rem;
+        grid-template-columns: 1fr auto;
+        padding: 1rem 1.25rem;
+    }
+
+    .group-chat-form textarea {
+        max-height: 150px;
+        resize: vertical;
+    }
+
+    @media (max-width: 767px) {
+        .group-chat-shell {
+            margin-left: -0.75rem;
+            margin-right: -0.75rem;
+        }
+
+        .group-chat-card {
+            border-left: 0;
+            border-radius: 0;
+            border-right: 0;
+            grid-template-rows: auto auto minmax(420px, calc(100vh - 300px)) auto;
+        }
+
+        .group-message {
+            max-width: 92%;
+        }
+
+        .group-chat-form {
+            grid-template-columns: 1fr;
+        }
+
+        .group-chat-form .btn {
+            width: 100%;
+        }
+    }
+</style>
+
+<script>
+(() => {
+    const messages = document.getElementById("group-chat-messages");
+    const textInput = document.querySelector(".group-chat-form textarea");
+
+    if (messages) {
+        messages.scrollTop = messages.scrollHeight;
+    }
+
+    if (!textInput) {
+        return;
+    }
+
+    window.setInterval(() => {
+        if (document.visibilityState === "visible" && textInput.value.trim() === "") {
+            window.location.reload();
+        }
+    }, 30000);
+})();
+</script>
+{% endblock %}

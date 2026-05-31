@@ -2,6 +2,20 @@ from django.db import models
 from django.contrib.auth.models import User
 
 
+class StudyGroup(models.Model):
+    code = models.CharField("Код группы", max_length=32, unique=True)
+    display_name = models.CharField("Название группы", max_length=64)
+    created_at = models.DateTimeField("Дата создания", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Учебная группа"
+        verbose_name_plural = "Учебные группы"
+        ordering = ("display_name",)
+
+    def __str__(self):
+        return self.display_name
+
+
 class Profile(models.Model):
     ROLE_CHOICES = [
         ('student', 'Студент'),
@@ -15,6 +29,14 @@ class Profile(models.Model):
     bio = models.TextField("О себе", blank=True)
     photo = models.ImageField("Фотография", upload_to="profile_photos/", blank=True, null=True)
     created_at = models.DateTimeField("Дата создания", auto_now_add=True)
+    study_group = models.ForeignKey(
+        StudyGroup,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="members",
+        verbose_name="Учебная группа",
+    )
     is_primary_admin = models.BooleanField("Первичный администратор", default=False)
     admin_granted_by = models.ForeignKey(
         User,
@@ -62,3 +84,28 @@ class Profile(models.Model):
 
     def is_teacher(self):
         return self.role == "teacher"
+
+
+class GroupChatMessage(models.Model):
+    study_group = models.ForeignKey(
+        StudyGroup,
+        on_delete=models.CASCADE,
+        related_name="messages",
+        verbose_name="Учебная группа",
+    )
+    author = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="group_chat_messages",
+        verbose_name="Автор",
+    )
+    text = models.TextField("Текст сообщения")
+    created_at = models.DateTimeField("Дата создания", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Сообщение группового чата"
+        verbose_name_plural = "Сообщения группового чата"
+        ordering = ("created_at", "id")
+
+    def __str__(self):
+        return f"{self.study_group}: {self.author}"

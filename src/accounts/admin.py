@@ -4,7 +4,8 @@ from django.contrib import messages
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import Group, User
 
-from .models import Profile
+from .models import GroupChatMessage, Profile, StudyGroup
+from .utils import get_student_record_book_number
 
 
 apps.get_app_config("auth").verbose_name = "Пользователи"
@@ -41,22 +42,6 @@ def other_admins_exist(target):
     )
 
 
-def get_student_record_book_number(email):
-    if not email:
-        return "-"
-
-    try:
-        local_part, domain = email.strip().lower().split("@", 1)
-        _, record_book_number = local_part.rsplit("_", 1)
-    except ValueError:
-        return "-"
-
-    if domain != "volsu.ru" or not record_book_number.isdigit():
-        return "-"
-
-    return record_book_number
-
-
 class ProfileInline(admin.StackedInline):
     model = Profile
     fk_name = "user"
@@ -67,11 +52,12 @@ class ProfileInline(admin.StackedInline):
         "role",
         "bio",
         "photo",
+        "study_group",
         "is_primary_admin",
         "admin_granted_by",
         "created_at",
     )
-    readonly_fields = ("is_primary_admin", "admin_granted_by", "created_at")
+    readonly_fields = ("study_group", "is_primary_admin", "admin_granted_by", "created_at")
     verbose_name = "Профиль"
     verbose_name_plural = "Профиль"
 
@@ -267,3 +253,23 @@ class UserAdmin(BaseUserAdmin):
 admin.site.unregister(User)
 admin.site.register(User, UserAdmin)
 admin.site.unregister(Group)
+
+
+@admin.register(StudyGroup)
+class StudyGroupAdmin(admin.ModelAdmin):
+    list_display = ("display_name", "code", "get_member_count", "created_at")
+    search_fields = ("display_name", "code")
+    readonly_fields = ("created_at",)
+
+    @admin.display(description="Студентов")
+    def get_member_count(self, obj):
+        return obj.members.count()
+
+
+@admin.register(GroupChatMessage)
+class GroupChatMessageAdmin(admin.ModelAdmin):
+    list_display = ("study_group", "author", "created_at")
+    list_filter = ("study_group", "created_at")
+    search_fields = ("text", "author__username", "author__email", "author__profile__full_name")
+    readonly_fields = ("created_at",)
+    list_select_related = ("study_group", "author")

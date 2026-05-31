@@ -26,7 +26,8 @@ from django.views.decorators.http import require_POST
 
 from .decorators import admin_required
 from .forms import DataImportForm, ProfileEditForm, RegisterForm
-from .models import Profile
+from .models import GroupChatMessage, Profile
+from .services import assign_study_group_from_email
 from .signals import create_user_profile, save_user_profile
 
 BACKUP_FILENAME_PREFIX = "science_registry_backup"
@@ -192,6 +193,7 @@ def register_view(request):
 
             user.profile.full_name = form.cleaned_data["full_name"]
             user.profile.save()
+            assign_study_group_from_email(user.profile)
 
             login(request, user)
             request.session.pop(REGISTRATION_CODE_SESSION_KEY, None)
@@ -251,6 +253,48 @@ def edit_profile_view(request):
         form = ProfileEditForm(instance=profile)
 
     return render(request, "accounts/edit_profile.html", {"form": form})
+
+
+@login_required
+def group_chat_view(request):
+    profile = request.user.profile
+    study_group = profile.study_group or assign_study_group_from_email(profile)
+
+    if not study_group:
+        return render(request, "accounts/group_chat.html", {
+            "study_group": None,
+            "members": [],
+            "messages": [],
+        })
+
+    if request.method == "POST":
+        text = request.POST.get("text", "").strip()
+        if text:
+            GroupChatMessage.objects.create(
+                study_group=study_group,
+                author=request.user,
+                text=text[:2000],
+            )
+        return redirect("group_chat")
+
+    members = (
+        study_group.members
+        .select_related("user")
+        .filter(role="student")
+        .order_by("full_name", "user__username")
+    )
+    chat_messages = (
+        study_group.messages
+        .select_related("author", "author__profile")
+        .order_by("-created_at", "-id")[:80]
+    )
+    chat_messages = list(reversed(chat_messages))
+
+    return render(request, "accounts/group_chat.html", {
+        "study_group": study_group,
+        "members": members,
+        "messages": chat_messages,
+    })
 
 
 @admin_required

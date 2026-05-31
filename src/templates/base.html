@@ -417,6 +417,9 @@
                 <a class="nav-link" href="/">Главная</a>
                 <a class="nav-link" href="/works/my/">Мои работы</a>
                 <a class="nav-link" href="/works/create/">Добавить работу</a>
+                {% if request.user.is_authenticated and request.user.profile.study_group %}
+                    <a class="nav-link" href="{% url 'group_chat' %}">Чат группы</a>
+                {% endif %}
                 {% if request.user.is_staff %}
                     <a class="nav-link" href="/admin/">Админ-панель</a>
                 {% endif %}
@@ -467,7 +470,11 @@
     </div>
 </footer>
 
-<div class="cookie-notice" id="cookie-notice" role="dialog" aria-live="polite" aria-label="Уведомление об использовании cookie">
+<div class="cookie-notice"
+     id="cookie-notice"
+     role="dialog"
+     aria-live="polite"
+     aria-label="Уведомление об использовании cookie">
     <div class="cookie-notice-content">
         <p class="cookie-notice-text">
             ScienceHub ВолГУ использует необходимые cookie для авторизации, сохранения сессии

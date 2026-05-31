@@ -2,10 +2,13 @@ from unittest.mock import patch
 
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth.models import User
-from django.test import RequestFactory, TestCase
+from django.test import Client, RequestFactory, TestCase
+from django.urls import reverse
 
-from .admin import UserAdmin, can_manage_admin_target, get_student_record_book_number
-from .models import Profile
+from .admin import UserAdmin, can_manage_admin_target
+from .models import GroupChatMessage, Profile
+from .services import assign_study_group_from_email
+from .utils import get_student_record_book_number, parse_volsu_student_email
 
 
 class AdminGrantTests(TestCase):
@@ -127,3 +130,49 @@ class StudentRecordBookNumberTests(TestCase):
         user.profile.save(update_fields=["role"])
 
         self.assertEqual(self.admin.get_record_book_number(user), "-")
+
+
+class StudyGroupChatTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+
+    def create_student(self, username, email):
+        user = User.objects.create_user(
+            username=username,
+            email=email,
+            password="password",
+        )
+        user.profile.full_name = f"{username.title()} Test"
+        user.profile.save(update_fields=["full_name"])
+        assign_study_group_from_email(user.profile)
+        return user
+
+    def test_parses_study_group_from_volsu_email(self):
+        student_data = parse_volsu_student_email("pmib-231_634292@volsu.ru")
+
+        self.assertEqual(student_data["group_code"], "pmib-231")
+        self.assertEqual(student_data["group_name"], "ПМИб-231")
+        self.assertEqual(student_data["record_book_number"], "634292")
+
+    def test_assigns_students_with_same_email_group_to_same_study_group(self):
+        first = self.create_student("first", "pmib-231_111111@volsu.ru")
+        second = self.create_student("second", "pmib-231_222222@volsu.ru")
+
+        first.profile.refresh_from_db()
+        second.profile.refresh_from_db()
+
+        self.assertIsNotNone(first.profile.study_group)
+        self.assertEqual(first.profile.study_group, second.profile.study_group)
+        self.assertEqual(first.profile.study_group.display_name, "ПМИб-231")
+
+    def test_group_chat_creates_message_for_current_student_group(self):
+        user = self.create_student("first", "pmib-231_111111@volsu.ru")
+        self.client.force_login(user)
+
+        response = self.client.post(reverse("group_chat"), {"text": "Привет, группа!"})
+
+        self.assertRedirects(response, reverse("group_chat"))
+        message = GroupChatMessage.objects.get()
+        self.assertEqual(message.author, user)
+        self.assertEqual(message.study_group, user.profile.study_group)
+        self.assertEqual(message.text, "Привет, группа!")
