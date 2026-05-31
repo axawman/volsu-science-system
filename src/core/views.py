@@ -2,7 +2,7 @@ from django.db.models import Count, Q
 from django.shortcuts import render
 from django.utils import timezone
 
-from works.models import WorkSection
+from works.models import Work, WorkSection
 from meetings.models import Meeting
 from events.models import Event
 
@@ -19,6 +19,30 @@ def home(request):
     sections = WorkSection.objects.annotate(
         work_count=Count("works", filter=visible_works_filter, distinct=True)
     ).order_by("sort_order", "name")
+
+    search_query = request.GET.get("q", "").strip()
+    search_results = []
+
+    if search_query:
+        searchable_works = Work.objects.select_related("author", "author__profile", "section")
+        if request.user.is_authenticated and request.user.profile.is_admin():
+            pass
+        elif request.user.is_authenticated:
+            searchable_works = searchable_works.filter(
+                Q(status="published", visibility="public") | Q(author=request.user)
+            )
+        else:
+            searchable_works = searchable_works.filter(status="published", visibility="public")
+
+        for term in search_query.split():
+            searchable_works = searchable_works.filter(
+                Q(title__icontains=term)
+                | Q(description__icontains=term)
+                | Q(content__icontains=term)
+            )
+
+        search_results = searchable_works.distinct().order_by("-updated_at")[:8]
+
     upcoming_meetings = Meeting.objects.filter(start_at__gte=now).order_by("start_at")[:5]
     upcoming_events = Event.objects.filter(event_date__gte=now).order_by("event_date")[:5]
     upcoming_activity = []
@@ -84,5 +108,7 @@ def home(request):
         "upcoming_activity": upcoming_activity,
         "calendar_items": calendar_items,
         "today": now.date().isoformat(),
+        "search_query": search_query,
+        "search_results": search_results,
     }
     return render(request, "core/home.html", context)

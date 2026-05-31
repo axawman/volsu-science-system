@@ -20,6 +20,60 @@
                 </div>
             </div>
 
+            <form method="get" action="/" class="home-search mb-4" role="search">
+                <label for="work-search" class="form-label small text-soft mb-1">Поиск по работам</label>
+                <div class="input-group">
+                    <input type="search"
+                           class="form-control"
+                           id="work-search"
+                           name="q"
+                           value="{{ search_query }}"
+                           placeholder="Название или слова из описания">
+                    <button type="submit" class="btn btn-primary">Найти</button>
+                    {% if search_query %}
+                        <a href="/" class="btn btn-outline-secondary">Сбросить</a>
+                    {% endif %}
+                </div>
+            </form>
+
+            {% if search_query %}
+                <div class="search-results mb-4">
+                    <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap mb-2">
+                        <h2 class="section-title mb-0">Результаты поиска</h2>
+                        <span class="badge badge-soft">{{ search_results|length }}</span>
+                    </div>
+
+                    {% for work in search_results %}
+                        <div class="mini-list-item search-result-item">
+                            <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+                                <div class="search-result-main">
+                                    <a href="/works/{{ work.id }}/" class="mini-list-title">
+                                        {{ work.title }}
+                                    </a>
+                                    <div class="meta">
+                                        {% if work.section %}Раздел: {{ work.section.name }}<br>{% endif %}
+                                        Автор: {{ work.author.profile.short_name }}<br>
+                                        Обновлено: {{ work.updated_at|date:"d.m.Y H:i" }}
+                                    </div>
+                                    {% if work.description %}
+                                        <p class="search-result-description mb-0">{{ work.description|truncatechars:180 }}</p>
+                                    {% elif work.content %}
+                                        <p class="search-result-description mb-0">{{ work.content|striptags|truncatechars:180 }}</p>
+                                    {% endif %}
+                                </div>
+
+                                <div class="search-result-badges">
+                                    <span class="badge badge-soft">{{ work.get_visibility_display }}</span>
+                                    <span class="badge text-bg-secondary">{{ work.get_status_display }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    {% empty %}
+                        <p class="text-soft mb-0">По запросу ничего не найдено.</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
             <div class="section-list">
             {% for section in sections %}
                 <div class="mini-list-item">
@@ -114,6 +168,33 @@
 
     .section-list {
         margin-top: 0.5rem;
+    }
+
+    .home-search .form-control {
+        border-color: var(--border-soft);
+    }
+
+    .search-results {
+        border-bottom: 1px solid var(--border-soft);
+        padding-bottom: 1rem;
+    }
+
+    .search-result-main {
+        flex: 1 1 320px;
+        min-width: 0;
+    }
+
+    .search-result-description {
+        color: var(--text-muted);
+        font-size: 0.9rem;
+        margin-top: 0.65rem;
+    }
+
+    .search-result-badges {
+        align-items: flex-end;
+        display: flex;
+        flex-direction: column;
+        gap: 0.45rem;
     }
 
     .calendar-card {
