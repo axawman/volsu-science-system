@@ -101,16 +101,12 @@
                         </div>
                         <div class="modal-body">
                             <div class="d-grid gap-2">
-                                <form method="post" id="delete-me-form">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="scope" value="me">
-                                    <button class="btn btn-outline-danger w-100" type="submit">Удалить у меня</button>
-                                </form>
-                                <form method="post" id="delete-all-form">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="scope" value="all">
-                                    <button class="btn btn-outline-danger w-100" type="submit">Удалить у всех</button>
-                                </form>
+                                <button class="btn btn-outline-danger" type="button" id="delete-me-button">
+                                    Удалить у меня
+                                </button>
+                                <button class="btn btn-outline-danger" type="button" id="delete-all-button">
+                                    Удалить у всех
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -555,14 +551,15 @@
     const mobileReplyButton = document.getElementById("mobile-reply-message");
     const mobileEditButton = document.getElementById("mobile-edit-message");
     const mobileDeleteButton = document.getElementById("mobile-delete-message");
-    const deleteMeForm = document.getElementById("delete-me-form");
-    const deleteAllForm = document.getElementById("delete-all-form");
+    const deleteMeButton = document.getElementById("delete-me-button");
+    const deleteAllButton = document.getElementById("delete-all-button");
     const readersModalEl = document.getElementById("readersModal");
     const readersModalBody = document.getElementById("readers-modal-body");
     const onlinePill = document.getElementById("group-online-pill");
     const onlineCount = document.getElementById("group-online-count");
     const updatesUrl = "{% url 'group_chat_updates' %}";
     let activeMessage = null;
+    let activeDeleteUrl = "";
     let actionsModal = null;
     let deleteChoiceModal = null;
     let readersModal = null;
@@ -674,6 +671,31 @@
         return false;
     }
 
+    async function submitDelete(scope) {
+        if (!activeDeleteUrl) {
+            return false;
+        }
+
+        const formData = new FormData();
+        formData.append("scope", scope);
+        formData.append("csrfmiddlewaretoken", "{{ csrf_token }}");
+
+        const response = await fetch(activeDeleteUrl, {
+            method: "POST",
+            body: formData,
+            headers: {
+                "X-Requested-With": "XMLHttpRequest",
+            },
+        });
+
+        if (response.ok) {
+            replaceMessages(await response.json());
+            return true;
+        }
+
+        return false;
+    }
+
     function showEditForm(messageId) {
         const form = document.querySelector(`[data-edit-form="${messageId}"]`);
 
@@ -694,9 +716,8 @@
         }
 
         activeMessage = row;
-        deleteMeForm.action = row.dataset.deleteUrl;
-        deleteAllForm.action = row.dataset.deleteUrl;
-        deleteAllForm.hidden = !isOwn;
+        activeDeleteUrl = row.dataset.deleteUrl || "";
+        deleteAllButton.hidden = !isOwn;
         modal.show();
     }
 
@@ -833,23 +854,19 @@
         });
     }
 
-    if (deleteMeForm) {
-        deleteMeForm.addEventListener("submit", async (event) => {
-            event.preventDefault();
-
+    if (deleteMeButton) {
+        deleteMeButton.addEventListener("click", async () => {
             if (window.confirm("Удалить сообщение у вас?")) {
-                await submitAjaxForm(deleteMeForm);
+                await submitDelete("me");
                 getDeleteChoiceModal().hide();
             }
         });
     }
 
-    if (deleteAllForm) {
-        deleteAllForm.addEventListener("submit", async (event) => {
-            event.preventDefault();
-
+    if (deleteAllButton) {
+        deleteAllButton.addEventListener("click", async () => {
             if (window.confirm("Удалить сообщение у всех?")) {
-                await submitAjaxForm(deleteAllForm);
+                await submitDelete("all");
                 getDeleteChoiceModal().hide();
             }
         });
@@ -885,7 +902,9 @@
         mobileDeleteButton.addEventListener("click", () => {
             if (activeMessage) {
                 getActionsModal().hide();
-                openDeleteChoice(activeMessage);
+                window.setTimeout(() => {
+                    openDeleteChoice(activeMessage);
+                }, 220);
             }
         });
     }
