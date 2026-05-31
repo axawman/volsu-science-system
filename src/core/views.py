@@ -2,6 +2,7 @@ from django.db.models import Count, Q
 from django.shortcuts import render
 from django.utils import timezone
 
+from .models import PlatformNews
 from works.models import Work, WorkSection
 from meetings.models import Meeting
 from events.models import Event
@@ -110,5 +111,6 @@ def home(request):
         "today": now.date().isoformat(),
         "search_query": search_query,
         "search_results": search_results,
+        "platform_news": PlatformNews.objects.filter(is_active=True),
     }
     return render(request, "core/home.html", context)

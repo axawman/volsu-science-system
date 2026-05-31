@@ -156,6 +156,54 @@
     </div>
 </div>
 
+{% if platform_news %}
+    <section class="card-soft platform-news mt-4">
+        <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap mb-3">
+            <h2 class="section-title mb-0">Новости платформы</h2>
+            <span class="badge badge-soft">{{ platform_news|length }}</span>
+        </div>
+
+        <div id="platform-news-carousel"
+             class="carousel slide"
+             data-bs-ride="carousel"
+             data-bs-interval="7000"
+             data-bs-touch="true">
+            {% if platform_news|length > 1 %}
+                <div class="carousel-indicators platform-news-indicators">
+                    {% for news in platform_news %}
+                        <button type="button"
+                                data-bs-target="#platform-news-carousel"
+                                data-bs-slide-to="{{ forloop.counter0 }}"
+                                {% if forloop.first %}class="active" aria-current="true"{% endif %}
+                                aria-label="Новость {{ forloop.counter }}"></button>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <div class="carousel-inner">
+                {% for news in platform_news %}
+                    <article class="carousel-item {% if forloop.first %}active{% endif %}">
+                        <div class="platform-news-slide {% if not news.image %}text-only{% endif %}">
+                            {% if news.image %}
+                                <div class="platform-news-media">
+                                    <img src="{{ news.image.url }}" alt="{{ news.title }}">
+                                </div>
+                            {% endif %}
+
+                            <div class="platform-news-content">
+                                <h3 class="platform-news-title">{{ news.title }}</h3>
+                                {% if news.text %}
+                                    <div class="platform-news-text">{{ news.text }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </article>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+{% endif %}
+
 <style>
     .home-title {
         font-size: clamp(1.35rem, 2vw, 1.8rem);
@@ -190,6 +238,67 @@
         display: flex;
         flex-direction: column;
         gap: 0.45rem;
+    }
+
+    .platform-news {
+        padding: 1.5rem;
+    }
+
+    .platform-news-slide {
+        align-items: stretch;
+        display: grid;
+        gap: 1.25rem;
+        grid-template-columns: minmax(220px, 0.95fr) minmax(0, 1.15fr);
+        min-height: 260px;
+    }
+
+    .platform-news-slide.text-only {
+        display: block;
+        min-height: 180px;
+    }
+
+    .platform-news-media {
+        background: var(--surface-muted);
+        border: 1px solid var(--border-soft);
+        border-radius: 0.5rem;
+        overflow: hidden;
+    }
+
+    .platform-news-media img {
+        height: 100%;
+        object-fit: cover;
+        width: 100%;
+    }
+
+    .platform-news-content {
+        align-self: center;
+        min-width: 0;
+        padding-bottom: 2rem;
+    }
+
+    .platform-news-title {
+        color: var(--text-main);
+        font-size: 1.25rem;
+        font-weight: 700;
+        margin-bottom: 0.75rem;
+    }
+
+    .platform-news-text {
+        color: var(--text-muted);
+        line-height: 1.55;
+        white-space: pre-wrap;
+    }
+
+    .platform-news-indicators {
+        bottom: -0.75rem;
+        margin-bottom: 0;
+    }
+
+    .platform-news-indicators [data-bs-target] {
+        background-color: var(--primary-soft);
+        border-radius: 50%;
+        height: 0.55rem;
+        width: 0.55rem;
     }
 
     .calendar-card {
@@ -308,6 +417,14 @@
     @media (max-width: 991px) {
         .calendar-card {
             position: static;
+        }
+
+        .platform-news-slide {
+            grid-template-columns: 1fr;
+        }
+
+        .platform-news-media {
+            aspect-ratio: 16 / 9;
         }
     }
 </style>

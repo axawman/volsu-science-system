@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-{% load static %}
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -72,25 +71,15 @@
         }
 
         .navbar-brand {
-            align-items: center;
-            display: inline-flex;
-            gap: 0.55rem;
             max-width: 430px;
             white-space: normal;
             line-height: 1.15;
             font-size: 1rem;
         }
 
-        .brand-logo {
-            height: 34px;
-            object-fit: contain;
-            width: 34px;
-        }
-
         .brand-wordmark {
             color: #ffffff;
-            font-family: "Segoe Script", "Bradley Hand", "Comic Sans MS", cursive;
-            font-size: 1.28rem;
+            font-size: 1.05rem;
             font-weight: 700;
             letter-spacing: 0;
         }
@@ -364,6 +353,7 @@
             color: var(--text-muted);
             font-size: 0.88rem;
             padding: 0.9rem 0;
+            text-align: center;
         }
 
         .site-disclaimer p {
@@ -413,12 +403,9 @@
 
 <nav class="navbar navbar-expand-lg navbar-dark shadow-sm">
     <div class="container">
-        <a class="navbar-brand" href="/">
-            <img src="{% static 'img/atom.png' %}" class="brand-logo" alt="" aria-hidden="true">
-            <span>
-                <span class="brand-wordmark">Science<span class="brand-wordmark-hub">Hub</span></span>
-                <span class="brand-subtitle">ВолГУ</span>
-            </span>
+        <a class="navbar-brand fw-semibold" href="/">
+            <span class="brand-wordmark">Science<span class="brand-wordmark-hub">Hub</span></span>
+            <span class="brand-subtitle">ВолГУ</span>
         </a>
 
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar">
@@ -475,8 +462,7 @@
     <div class="container">
         <p>
             Это не официальный сайт ВолГУ, а продукт курсовой работы студента.
-            Официальный сайт ВолГУ:
-            <a href="https://volsu.ru/" target="_blank" rel="noopener noreferrer">volsu.ru</a>.
+            <a href="https://volsu.ru/" target="_blank" rel="noopener noreferrer">Перейти на официальный сайт</a>.
         </p>
     </div>
 </footer>
