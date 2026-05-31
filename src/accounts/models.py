@@ -41,12 +41,15 @@ class Profile(models.Model):
 
     @property
     def role_name(self):
-        if self.role == "admin":
+        if self.user.is_superuser or self.user.is_staff or self.role == "admin":
             return "Админ"
         return self.get_role_display()
 
     def is_admin(self):
-        return self.role == "admin"
+        return self.user.is_superuser or self.user.is_staff or self.role == "admin"
 
     def is_student(self):
         return self.role == "student"
+
+    def is_teacher(self):
+        return self.role == "teacher"

@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.apps import apps
+from django.contrib import messages
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import Group, User
 
@@ -21,6 +22,7 @@ class ProfileInline(admin.StackedInline):
 
 class UserAdmin(BaseUserAdmin):
     inlines = (ProfileInline,)
+    actions = ("make_admin",)
     list_display = (
         "username",
         "email",
@@ -52,8 +54,38 @@ class UserAdmin(BaseUserAdmin):
     @admin.display(description="Роль", ordering="profile__role")
     def get_profile_role(self, obj):
         if hasattr(obj, "profile"):
-            return obj.profile.get_role_display()
+            return obj.profile.role_name
         return "-"
+
+    @admin.action(description="Назначить администратором")
+    def make_admin(self, request, queryset):
+        updated = 0
+
+        for user in queryset.select_related("profile"):
+            profile, _ = Profile.objects.get_or_create(
+                user=user,
+                defaults={"full_name": user.username},
+            )
+            changed = False
+
+            if profile.role != "admin":
+                profile.role = "admin"
+                profile.save(update_fields=["role"])
+                changed = True
+
+            if not user.is_staff:
+                user.is_staff = True
+                user.save(update_fields=["is_staff"])
+                changed = True
+
+            if changed:
+                updated += 1
+
+        self.message_user(
+            request,
+            f"Администратором назначено пользователей: {updated}.",
+            messages.SUCCESS,
+        )
 
 
 admin.site.unregister(User)
