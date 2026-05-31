@@ -387,10 +387,10 @@
                                  alt="avatar">
                         {% else %}
                             <span class="badge rounded-pill text-bg-light text-primary">
-                                {{ request.user.username|slice:":1"|upper }}
+                                {{ request.user.profile.avatar_initial }}
                             </span>
                         {% endif %}
-                        <span>{{ request.user.username }}</span>
+                        <span>{{ request.user.profile.short_name }}</span>
                     </a>
 
                 {% else %}

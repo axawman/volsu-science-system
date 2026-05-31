@@ -3,58 +3,196 @@
 {% block title %}Профиль{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-7">
-        <div class="card card-soft">
-            <div class="card-body p-4 p-md-5 text-center">
-
+<div class="profile-layout">
+    <section class="card card-soft profile-summary">
+        <div class="card-body p-4 p-md-5">
+            <div class="d-flex flex-column flex-md-row align-items-center align-items-md-start gap-4">
                 {% if profile.photo %}
                     <img src="{{ profile.photo.url }}"
-                         class="rounded-circle mb-3"
+                         class="profile-avatar"
                          width="120" height="120"
-                         style="object-fit: cover;"
                          alt="Фото профиля">
                 {% else %}
-                    <div class="mb-3">
-                        <div class="rounded-circle bg-secondary text-white d-inline-flex align-items-center justify-content-center"
-                             style="width:120px;height:120px;font-size:32px;">
-                            {{ request.user.username|slice:":1"|upper }}
-                        </div>
+                    <div class="profile-avatar profile-avatar-placeholder">
+                        {{ profile.avatar_initial }}
                     </div>
                 {% endif %}
 
-                <h2 class="h4 text-primary mb-1">{{ profile.full_name }}</h2>
-                <p class="text-secondary mb-1">@{{ request.user.username }}</p>
-                <p class="text-secondary">{{ request.user.email }}</p>
+                <div class="flex-grow-1 text-center text-md-start">
+                    <div class="d-flex flex-column flex-md-row align-items-center align-items-md-start gap-2 mb-2">
+                        <h1 class="h3 text-primary mb-0">{{ profile.full_name }}</h1>
+                        <span class="badge badge-soft profile-role">{{ profile.role_name }}</span>
+                    </div>
 
-                <hr>
+                    <p class="text-secondary mb-3">{{ request.user.email }}</p>
 
-                <div class="text-start mb-4">
-                    <p><strong>Роль:</strong> {{ user.profile.get_role_display }}</p>
-
-                    <h3 class="h6 text-primary mt-4">О себе</h3>
                     {% if profile.bio %}
-                        <div class="border rounded-3 p-3 bg-light" style="white-space: pre-wrap;">{{ profile.bio }}</div>
+                        <div class="profile-bio">{{ profile.bio }}</div>
                     {% else %}
                         <p class="text-secondary mb-0">Информация о себе пока не заполнена.</p>
                     {% endif %}
                 </div>
+            </div>
 
-                <div class="d-flex flex-wrap justify-content-center gap-2">
-                    <a href="/accounts/profile/edit/" class="btn btn-primary">Редактировать профиль</a>
-                    <a href="/works/my/" class="btn btn-outline-primary">Мои работы</a>
-                    {% if user.is_superuser or user.is_staff or user.profile.role == "admin" %}
-                        <a href="/accounts/data-transfer/" class="btn btn-outline-secondary">Экспорт и импорт</a>
-                    {% endif %}
+            <div class="d-flex flex-wrap gap-2 mt-4">
+                <a href="/accounts/profile/edit/" class="btn btn-primary">Редактировать профиль</a>
+                <button type="button"
+                        class="btn btn-outline-primary"
+                        data-bs-toggle="modal"
+                        data-bs-target="#messagesSoonModal">
+                    Личные сообщения
+                </button>
+                <a href="/works/create/" class="btn btn-outline-primary">Добавить работу</a>
+                {% if user.is_superuser or user.is_staff or user.profile.role == "admin" %}
+                    <a href="/accounts/data-transfer/" class="btn btn-outline-secondary">Экспорт и импорт</a>
+                {% endif %}
 
-                    <form method="post" action="/logout/" class="d-inline">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-outline-danger">Выйти</button>
-                    </form>
+                <form method="post" action="/logout/" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-danger">Выйти</button>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <section class="card card-soft mt-4">
+        <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap mb-2">
+                <h2 class="section-title mb-0">Работы</h2>
+                <a href="/works/my/" class="btn btn-sm btn-outline-primary">Все мои работы</a>
+            </div>
+
+            {% if works %}
+                <div class="profile-works">
+                    {% for work in works %}
+                        <article class="profile-work-item">
+                            <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+                                <div class="profile-work-main">
+                                    <a href="/works/{{ work.id }}/" class="mini-list-title">
+                                        {{ work.title }}
+                                    </a>
+                                    <div class="meta">
+                                        {% if work.section %}Раздел: {{ work.section.name }}<br>{% endif %}
+                                        Обновлено: {{ work.updated_at|date:"d.m.Y H:i" }}
+                                    </div>
+                                    {% if work.description %}
+                                        <p class="profile-work-description mb-0">{{ work.description }}</p>
+                                    {% endif %}
+                                </div>
+
+                                <div class="profile-work-actions">
+                                    <span class="badge badge-soft">{{ work.get_visibility_display }}</span>
+                                    <span class="badge text-bg-secondary">{{ work.get_status_display }}</span>
+                                    <a href="/works/{{ work.id }}/update/" class="btn btn-sm btn-outline-primary">
+                                        Редактировать
+                                    </a>
+                                </div>
+                            </div>
+                        </article>
+                    {% endfor %}
                 </div>
+            {% else %}
+                <div class="text-center text-secondary py-4">
+                    У вас пока нет работ.
+                </div>
+            {% endif %}
+        </div>
+    </section>
+</div>
 
+<div class="modal fade" id="messagesSoonModal" tabindex="-1" aria-labelledby="messagesSoonModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title fs-5" id="messagesSoonModalLabel">Личные сообщения</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+            </div>
+            <div class="modal-body">
+                Скоро будет добавлено.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Понятно</button>
             </div>
         </div>
     </div>
 </div>
+
+<style>
+    .profile-layout {
+        max-width: 920px;
+        margin: 0 auto;
+    }
+
+    .profile-summary {
+        overflow: hidden;
+    }
+
+    .profile-avatar {
+        border-radius: 50%;
+        flex: 0 0 auto;
+        height: 120px;
+        object-fit: cover;
+        width: 120px;
+    }
+
+    .profile-avatar-placeholder {
+        align-items: center;
+        background: var(--surface-hover);
+        border: 1px solid var(--border-soft);
+        color: var(--primary-soft);
+        display: inline-flex;
+        font-size: 2rem;
+        font-weight: 700;
+        justify-content: center;
+    }
+
+    .profile-role {
+        font-size: 0.78rem;
+        margin-top: 0.25rem;
+    }
+
+    .profile-bio {
+        background: var(--surface-muted);
+        border: 1px solid var(--border-soft);
+        border-radius: 0.5rem;
+        color: var(--text-main);
+        padding: 0.9rem 1rem;
+        white-space: pre-wrap;
+    }
+
+    .profile-work-item {
+        padding: 1rem 0;
+        border-bottom: 1px solid var(--border-soft);
+    }
+
+    .profile-work-item:last-child {
+        border-bottom: 0;
+        padding-bottom: 0;
+    }
+
+    .profile-work-main {
+        min-width: 0;
+        flex: 1 1 320px;
+    }
+
+    .profile-work-description {
+        color: var(--text-muted);
+        font-size: 0.9rem;
+        margin-top: 0.65rem;
+    }
+
+    .profile-work-actions {
+        align-items: flex-end;
+        display: flex;
+        flex-direction: column;
+        gap: 0.45rem;
+    }
+
+    @media (max-width: 575px) {
+        .profile-work-actions {
+            align-items: stretch;
+            width: 100%;
+        }
+    }
+</style>
 {% endblock %}

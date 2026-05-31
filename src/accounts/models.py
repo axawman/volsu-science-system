@@ -23,6 +23,28 @@ class Profile(models.Model):
     def __str__(self):
         return f"{self.user.username} ({self.role})"
 
+    @property
+    def short_name(self):
+        name = (self.full_name or self.user.get_full_name() or self.user.username).strip()
+        parts = name.split()
+
+        if len(parts) >= 3:
+            return f"{parts[0]} {parts[1][0]}.{parts[2][0]}."
+        if len(parts) == 2:
+            return f"{parts[0]} {parts[1][0]}."
+        return name
+
+    @property
+    def avatar_initial(self):
+        name = (self.full_name or self.user.username).strip()
+        return name[:1].upper() or "?"
+
+    @property
+    def role_name(self):
+        if self.role == "admin":
+            return "Админ"
+        return self.get_role_display()
+
     def is_admin(self):
         return self.role == "admin"
 

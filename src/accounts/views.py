@@ -206,7 +206,13 @@ def register_view(request):
 
 @login_required
 def profile_view(request):
-    return render(request, "accounts/profile.html", {"profile": request.user.profile})
+    from works.models import Work
+
+    works = Work.objects.filter(author=request.user).select_related("section").order_by("-updated_at")
+    return render(request, "accounts/profile.html", {
+        "profile": request.user.profile,
+        "works": works,
+    })
 
 
 @login_required
