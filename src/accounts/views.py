@@ -17,6 +17,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.core.mail import BadHeaderError, send_mail
 from django.core.management import call_command
+from django.db.models import Prefetch
 from django.db import connection, transaction
 from django.core.management.color import no_style
 from django.http import FileResponse, JsonResponse
@@ -265,19 +266,20 @@ def group_chat_view(request):
             "study_group": None,
             "members": [],
             "chat_messages": [],
-            "message_form": GroupChatMessageForm(),
+            "message_form": GroupChatMessageForm(study_group=None),
         })
 
     if request.method == "POST":
-        message_form = GroupChatMessageForm(request.POST)
+        message_form = GroupChatMessageForm(request.POST, study_group=study_group)
         if message_form.is_valid():
             message = message_form.save(commit=False)
             message.study_group = study_group
             message.author = request.user
             message.save()
+            message.read_by.add(request.user)
             return redirect("group_chat")
     else:
-        message_form = GroupChatMessageForm()
+        message_form = GroupChatMessageForm(study_group=study_group)
 
     members = (
         study_group.members
@@ -287,10 +289,37 @@ def group_chat_view(request):
     )
     chat_messages = (
         study_group.messages
-        .select_related("author", "author__profile")
+        .select_related("author", "author__profile", "reply_to", "reply_to__author", "reply_to__author__profile")
+        .prefetch_related(
+            Prefetch("read_by", queryset=User.objects.only("id")),
+        )
         .order_by("-created_at", "-id")[:80]
     )
     chat_messages = list(reversed(chat_messages))
+    unread_messages = [
+        message
+        for message in chat_messages
+        if message.author_id != request.user.id
+        and request.user.id not in {reader.id for reader in message.read_by.all()}
+    ]
+
+    for message in unread_messages:
+        message.read_by.add(request.user)
+
+    if unread_messages:
+        chat_messages = list(
+            study_group.messages
+            .filter(id__in=[message.id for message in chat_messages])
+            .select_related("author", "author__profile", "reply_to", "reply_to__author", "reply_to__author__profile")
+            .prefetch_related(Prefetch("read_by", queryset=User.objects.only("id")))
+            .order_by("created_at", "id")
+        )
+
+    for message in chat_messages:
+        message.has_been_read_by_others = any(
+            reader.id != message.author_id
+            for reader in message.read_by.all()
+        )
 
     return render(request, "accounts/group_chat.html", {
         "study_group": study_group,
@@ -310,12 +339,13 @@ def edit_group_chat_message_view(request, message_id):
         id=message_id,
         author=request.user,
         study_group=study_group,
+        is_deleted=False,
     )
-    form = GroupChatMessageForm(request.POST, instance=message)
+    form = GroupChatMessageForm(request.POST, instance=message, study_group=study_group)
 
     if form.is_valid():
         edited_message = form.save(commit=False)
-        edited_message.save(update_fields=["text"])
+        edited_message.save(update_fields=["text", "reply_to"])
         edited_message.mark_edited()
 
     return redirect("group_chat")
@@ -331,8 +361,9 @@ def delete_group_chat_message_view(request, message_id):
         id=message_id,
         author=request.user,
         study_group=study_group,
+        is_deleted=False,
     )
-    message.delete()
+    message.mark_deleted()
     return redirect("group_chat")
 
 

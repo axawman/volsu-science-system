@@ -176,6 +176,40 @@ class StudyGroupChatTests(TestCase):
         self.assertEqual(message.author, user)
         self.assertEqual(message.study_group, user.profile.study_group)
         self.assertEqual(message.text, "Привет, группа!")
+        self.assertTrue(message.read_by.filter(id=user.id).exists())
+
+    def test_group_chat_creates_reply(self):
+        first = self.create_student("first", "pmib-231_111111@volsu.ru")
+        second = self.create_student("second", "pmib-231_222222@volsu.ru")
+        original = GroupChatMessage.objects.create(
+            study_group=first.profile.study_group,
+            author=first,
+            text="Первое сообщение",
+        )
+        self.client.force_login(second)
+
+        response = self.client.post(reverse("group_chat"), {
+            "text": "Ответ",
+            "reply_to": original.id,
+        })
+
+        self.assertRedirects(response, reverse("group_chat"))
+        reply = GroupChatMessage.objects.get(text="Ответ")
+        self.assertEqual(reply.reply_to, original)
+
+    def test_group_chat_marks_visible_messages_as_read(self):
+        first = self.create_student("first", "pmib-231_111111@volsu.ru")
+        second = self.create_student("second", "pmib-231_222222@volsu.ru")
+        message = GroupChatMessage.objects.create(
+            study_group=first.profile.study_group,
+            author=first,
+            text="Нужно прочитать",
+        )
+        self.client.force_login(second)
+
+        self.client.get(reverse("group_chat"))
+
+        self.assertTrue(message.read_by.filter(id=second.id).exists())
 
     def test_group_chat_does_not_override_django_messages_context(self):
         user = self.create_student("first", "pmib-231_111111@volsu.ru")
@@ -243,4 +277,7 @@ class StudyGroupChatTests(TestCase):
         )
 
         self.assertRedirects(response, reverse("group_chat"))
-        self.assertFalse(GroupChatMessage.objects.filter(id=message.id).exists())
+        message.refresh_from_db()
+        self.assertTrue(message.is_deleted)
+        self.assertEqual(message.text, "")
+        self.assertIsNotNone(message.deleted_at)

@@ -101,13 +101,32 @@ class GroupChatMessage(models.Model):
         verbose_name="Автор",
     )
     text = models.TextField("Текст сообщения")
+    reply_to = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="replies",
+        verbose_name="Ответ на сообщение",
+    )
+    read_by = models.ManyToManyField(
+        User,
+        blank=True,
+        related_name="read_group_chat_messages",
+        verbose_name="Кем прочитано",
+    )
     created_at = models.DateTimeField("Дата создания", auto_now_add=True)
     edited_at = models.DateTimeField("Дата редактирования", blank=True, null=True)
+    is_deleted = models.BooleanField("Удалено", default=False)
+    deleted_at = models.DateTimeField("Дата удаления", blank=True, null=True)
 
     class Meta:
         verbose_name = "Сообщение группового чата"
         verbose_name_plural = "Сообщения группового чата"
         ordering = ("created_at", "id")
+        indexes = [
+            models.Index(fields=["study_group", "created_at", "id"]),
+        ]
 
     def __str__(self):
         return f"{self.study_group}: {self.author}"
@@ -115,3 +134,9 @@ class GroupChatMessage(models.Model):
     def mark_edited(self):
         self.edited_at = timezone.now()
         self.save(update_fields=["edited_at"])
+
+    def mark_deleted(self):
+        self.text = ""
+        self.is_deleted = True
+        self.deleted_at = timezone.now()
+        self.save(update_fields=["text", "is_deleted", "deleted_at"])
