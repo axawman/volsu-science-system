@@ -1,7 +1,9 @@
 from django.urls import path
 from .views import (
     data_transfer_view,
+    delete_group_chat_message_view,
     edit_profile_view,
+    edit_group_chat_message_view,
     export_data_view,
     group_chat_view,
     import_data_view,
@@ -19,6 +21,12 @@ urlpatterns = [
     path("profile/", profile_view, name="profile"),
     path("profile/edit/", edit_profile_view, name="edit_profile"),
     path("group-chat/", group_chat_view, name="group_chat"),
+    path("group-chat/messages/<int:message_id>/edit/", edit_group_chat_message_view, name="edit_group_chat_message"),
+    path(
+        "group-chat/messages/<int:message_id>/delete/",
+        delete_group_chat_message_view,
+        name="delete_group_chat_message",
+    ),
     path("users/<str:username>/", public_profile_view, name="public_profile"),
     path("data-transfer/", data_transfer_view, name="data_transfer"),
     path("data-transfer/export/", export_data_view, name="export_data"),

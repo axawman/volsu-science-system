@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils import timezone
 
 
 class StudyGroup(models.Model):
@@ -101,6 +102,7 @@ class GroupChatMessage(models.Model):
     )
     text = models.TextField("Текст сообщения")
     created_at = models.DateTimeField("Дата создания", auto_now_add=True)
+    edited_at = models.DateTimeField("Дата редактирования", blank=True, null=True)
 
     class Meta:
         verbose_name = "Сообщение группового чата"
@@ -109,3 +111,7 @@ class GroupChatMessage(models.Model):
 
     def __str__(self):
         return f"{self.study_group}: {self.author}"
+
+    def mark_edited(self):
+        self.edited_at = timezone.now()
+        self.save(update_fields=["edited_at"])

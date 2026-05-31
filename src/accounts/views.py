@@ -25,7 +25,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from .decorators import admin_required
-from .forms import DataImportForm, ProfileEditForm, RegisterForm
+from .forms import DataImportForm, GroupChatMessageForm, ProfileEditForm, RegisterForm
 from .models import GroupChatMessage, Profile
 from .services import assign_study_group_from_email
 from .signals import create_user_profile, save_user_profile
@@ -264,18 +264,20 @@ def group_chat_view(request):
         return render(request, "accounts/group_chat.html", {
             "study_group": None,
             "members": [],
-            "messages": [],
+            "chat_messages": [],
+            "message_form": GroupChatMessageForm(),
         })
 
     if request.method == "POST":
-        text = request.POST.get("text", "").strip()
-        if text:
-            GroupChatMessage.objects.create(
-                study_group=study_group,
-                author=request.user,
-                text=text[:2000],
-            )
-        return redirect("group_chat")
+        message_form = GroupChatMessageForm(request.POST)
+        if message_form.is_valid():
+            message = message_form.save(commit=False)
+            message.study_group = study_group
+            message.author = request.user
+            message.save()
+            return redirect("group_chat")
+    else:
+        message_form = GroupChatMessageForm()
 
     members = (
         study_group.members
@@ -293,8 +295,45 @@ def group_chat_view(request):
     return render(request, "accounts/group_chat.html", {
         "study_group": study_group,
         "members": members,
-        "messages": chat_messages,
+        "chat_messages": chat_messages,
+        "message_form": message_form,
     })
+
+
+@login_required
+@require_POST
+def edit_group_chat_message_view(request, message_id):
+    profile = request.user.profile
+    study_group = profile.study_group or assign_study_group_from_email(profile)
+    message = get_object_or_404(
+        GroupChatMessage,
+        id=message_id,
+        author=request.user,
+        study_group=study_group,
+    )
+    form = GroupChatMessageForm(request.POST, instance=message)
+
+    if form.is_valid():
+        edited_message = form.save(commit=False)
+        edited_message.save(update_fields=["text"])
+        edited_message.mark_edited()
+
+    return redirect("group_chat")
+
+
+@login_required
+@require_POST
+def delete_group_chat_message_view(request, message_id):
+    profile = request.user.profile
+    study_group = profile.study_group or assign_study_group_from_email(profile)
+    message = get_object_or_404(
+        GroupChatMessage,
+        id=message_id,
+        author=request.user,
+        study_group=study_group,
+    )
+    message.delete()
+    return redirect("group_chat")
 
 
 @admin_required

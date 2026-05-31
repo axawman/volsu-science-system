@@ -33,8 +33,9 @@
             </div>
 
             <div class="group-chat-messages" id="group-chat-messages">
-                {% for message in messages %}
-                    <article class="group-message {% if message.author == request.user %}is-own{% endif %}">
+                {% for message in chat_messages %}
+                    <article class="group-message {% if message.author == request.user %}is-own{% endif %}"
+                             id="message-{{ message.id }}">
                         <a class="group-message-avatar-link" href="{% url 'public_profile' message.author.username %}">
                             {% if message.author.profile.photo %}
                                 <img src="{{ message.author.profile.photo.url }}"
@@ -54,8 +55,46 @@
                                 <time datetime="{{ message.created_at|date:'c' }}">
                                     {{ message.created_at|date:"d.m.Y H:i" }}
                                 </time>
+                                {% if message.edited_at %}
+                                    <span class="group-message-edited">изменено</span>
+                                {% endif %}
                             </div>
                             <div class="group-message-text">{{ message.text|linebreaksbr }}</div>
+                            {% if message.author == request.user %}
+                                <div class="group-message-actions">
+                                    <button class="group-message-action"
+                                            type="button"
+                                            data-edit-message="{{ message.id }}">
+                                        Редактировать
+                                    </button>
+                                    <form method="post"
+                                          action="{% url 'delete_group_chat_message' message.id %}"
+                                          data-confirm-delete>
+                                        {% csrf_token %}
+                                        <button class="group-message-action danger" type="submit">Удалить</button>
+                                    </form>
+                                </div>
+                                <form class="group-message-edit-form"
+                                      method="post"
+                                      action="{% url 'edit_group_chat_message' message.id %}"
+                                      data-edit-form="{{ message.id }}"
+                                      hidden>
+                                    {% csrf_token %}
+                                    <textarea name="text"
+                                              class="form-control"
+                                              rows="2"
+                                              maxlength="2000"
+                                              required>{{ message.text }}</textarea>
+                                    <div class="group-message-edit-actions">
+                                        <button class="btn btn-primary btn-sm" type="submit">Сохранить</button>
+                                        <button class="btn btn-outline-primary btn-sm"
+                                                type="button"
+                                                data-cancel-edit="{{ message.id }}">
+                                            Отмена
+                                        </button>
+                                    </div>
+                                </form>
+                            {% endif %}
                         </div>
                     </article>
                 {% empty %}
@@ -67,12 +106,10 @@
 
             <form class="group-chat-form" method="post">
                 {% csrf_token %}
-                <textarea name="text"
-                          class="form-control"
-                          rows="2"
-                          maxlength="2000"
-                          placeholder="Написать сообщение"
-                          required></textarea>
+                {{ message_form.text }}
+                {% if message_form.text.errors %}
+                    <div class="invalid-feedback d-block">{{ message_form.text.errors|join:", " }}</div>
+                {% endif %}
                 <button class="btn btn-primary" type="submit">Отправить</button>
             </form>
         </section>
@@ -229,9 +266,55 @@
         font-size: 0.76rem;
     }
 
+    .group-message-edited {
+        color: var(--text-muted);
+        font-size: 0.76rem;
+    }
+
     .group-message-text {
         overflow-wrap: anywhere;
         white-space: normal;
+    }
+
+    .group-message-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.65rem;
+        margin-top: 0.45rem;
+    }
+
+    .group-message-actions form {
+        margin: 0;
+    }
+
+    .group-message-action {
+        background: none;
+        border: 0;
+        color: var(--primary-soft);
+        font-size: 0.78rem;
+        font-weight: 600;
+        padding: 0;
+    }
+
+    .group-message-action:hover,
+    .group-message-action:focus {
+        text-decoration: underline;
+    }
+
+    .group-message-action.danger {
+        color: #c2410c;
+    }
+
+    .group-message-edit-form {
+        display: grid;
+        gap: 0.55rem;
+        margin-top: 0.55rem;
+    }
+
+    .group-message-edit-actions {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: flex-end;
     }
 
     .group-chat-empty {
@@ -286,12 +369,54 @@
 (() => {
     const messages = document.getElementById("group-chat-messages");
     const textInput = document.querySelector(".group-chat-form textarea");
+    const sendForm = document.querySelector(".group-chat-form");
 
     if (messages) {
         messages.scrollTop = messages.scrollHeight;
     }
 
-    if (!textInput) {
+    document.querySelectorAll("[data-edit-message]").forEach((button) => {
+        button.addEventListener("click", () => {
+            const messageId = button.dataset.editMessage;
+            const form = document.querySelector(`[data-edit-form="${messageId}"]`);
+
+            if (!form) {
+                return;
+            }
+
+            form.hidden = false;
+            form.querySelector("textarea").focus();
+        });
+    });
+
+    document.querySelectorAll("[data-cancel-edit]").forEach((button) => {
+        button.addEventListener("click", () => {
+            const form = document.querySelector(`[data-edit-form="${button.dataset.cancelEdit}"]`);
+
+            if (form) {
+                form.hidden = true;
+            }
+        });
+    });
+
+    document.querySelectorAll("[data-confirm-delete]").forEach((form) => {
+        form.addEventListener("submit", (event) => {
+            if (!window.confirm("Удалить сообщение?")) {
+                event.preventDefault();
+            }
+        });
+    });
+
+    document.querySelectorAll(".group-chat-form textarea, .group-message-edit-form textarea").forEach((textarea) => {
+        textarea.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                textarea.form.requestSubmit();
+            }
+        });
+    });
+
+    if (!textInput || !sendForm) {
         return;
     }
 

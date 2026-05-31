@@ -176,3 +176,71 @@ class StudyGroupChatTests(TestCase):
         self.assertEqual(message.author, user)
         self.assertEqual(message.study_group, user.profile.study_group)
         self.assertEqual(message.text, "Привет, группа!")
+
+    def test_group_chat_does_not_override_django_messages_context(self):
+        user = self.create_student("first", "pmib-231_111111@volsu.ru")
+        GroupChatMessage.objects.create(
+            study_group=user.profile.study_group,
+            author=user,
+            text="Сообщение без alert сверху",
+        )
+        self.client.force_login(user)
+
+        response = self.client.get(reverse("group_chat"))
+
+        self.assertContains(response, "Сообщение без alert сверху")
+        self.assertNotContains(response, "alert-success")
+
+    def test_author_can_edit_own_group_chat_message(self):
+        user = self.create_student("first", "pmib-231_111111@volsu.ru")
+        message = GroupChatMessage.objects.create(
+            study_group=user.profile.study_group,
+            author=user,
+            text="Старый текст",
+        )
+        self.client.force_login(user)
+
+        response = self.client.post(
+            reverse("edit_group_chat_message", kwargs={"message_id": message.id}),
+            {"text": "Новый текст"},
+        )
+
+        self.assertRedirects(response, reverse("group_chat"))
+        message.refresh_from_db()
+        self.assertEqual(message.text, "Новый текст")
+        self.assertIsNotNone(message.edited_at)
+
+    def test_other_group_member_cannot_edit_message(self):
+        author = self.create_student("first", "pmib-231_111111@volsu.ru")
+        other = self.create_student("second", "pmib-231_222222@volsu.ru")
+        message = GroupChatMessage.objects.create(
+            study_group=author.profile.study_group,
+            author=author,
+            text="Нельзя редактировать",
+        )
+        self.client.force_login(other)
+
+        response = self.client.post(
+            reverse("edit_group_chat_message", kwargs={"message_id": message.id}),
+            {"text": "Попытка"},
+        )
+
+        self.assertEqual(response.status_code, 404)
+        message.refresh_from_db()
+        self.assertEqual(message.text, "Нельзя редактировать")
+
+    def test_author_can_delete_own_group_chat_message(self):
+        user = self.create_student("first", "pmib-231_111111@volsu.ru")
+        message = GroupChatMessage.objects.create(
+            study_group=user.profile.study_group,
+            author=user,
+            text="Удалить",
+        )
+        self.client.force_login(user)
+
+        response = self.client.post(
+            reverse("delete_group_chat_message", kwargs={"message_id": message.id}),
+        )
+
+        self.assertRedirects(response, reverse("group_chat"))
+        self.assertFalse(GroupChatMessage.objects.filter(id=message.id).exists())

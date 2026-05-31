@@ -268,8 +268,8 @@ class StudyGroupAdmin(admin.ModelAdmin):
 
 @admin.register(GroupChatMessage)
 class GroupChatMessageAdmin(admin.ModelAdmin):
-    list_display = ("study_group", "author", "created_at")
+    list_display = ("study_group", "author", "created_at", "edited_at")
     list_filter = ("study_group", "created_at")
     search_fields = ("text", "author__username", "author__email", "author__profile__full_name")
-    readonly_fields = ("created_at",)
+    readonly_fields = ("created_at", "edited_at")
     list_select_related = ("study_group", "author")

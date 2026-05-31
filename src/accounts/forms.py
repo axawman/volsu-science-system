@@ -2,7 +2,7 @@ from django import forms
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
-from .models import Profile
+from .models import GroupChatMessage, Profile
 
 
 class EmailOrUsernameAuthenticationForm(AuthenticationForm):
@@ -85,3 +85,23 @@ class DataImportForm(forms.Form):
         label="Архив с данными",
         widget=forms.ClearableFileInput(attrs={"class": "form-control", "accept": ".zip"})
     )
+
+
+class GroupChatMessageForm(forms.ModelForm):
+    class Meta:
+        model = GroupChatMessage
+        fields = ["text"]
+        widgets = {
+            "text": forms.Textarea(attrs={
+                "class": "form-control",
+                "rows": 2,
+                "maxlength": 2000,
+                "placeholder": "Написать сообщение",
+            }),
+        }
+
+    def clean_text(self):
+        text = self.cleaned_data["text"].strip()
+        if not text:
+            raise forms.ValidationError("Сообщение не может быть пустым.")
+        return text[:2000]
