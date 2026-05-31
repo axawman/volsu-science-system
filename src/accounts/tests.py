@@ -4,7 +4,7 @@ from django.contrib.admin.sites import AdminSite
 from django.contrib.auth.models import User
 from django.test import RequestFactory, TestCase
 
-from .admin import UserAdmin, can_manage_admin_target
+from .admin import UserAdmin, can_manage_admin_target, get_student_record_book_number
 from .models import Profile
 
 
@@ -99,3 +99,31 @@ class AdminGrantTests(TestCase):
         self.assertTrue(grantee.is_staff)
         self.assertTrue(grantee.is_superuser)
         self.assertEqual(profile.role, "admin")
+
+
+class StudentRecordBookNumberTests(TestCase):
+    def setUp(self):
+        self.site = AdminSite()
+        self.admin = UserAdmin(User, self.site)
+
+    def test_extracts_record_book_number_from_volsu_email(self):
+        self.assertEqual(
+            get_student_record_book_number("pmib-231_634292@volsu.ru"),
+            "634292",
+        )
+
+    def test_returns_dash_for_non_volsu_or_invalid_email(self):
+        self.assertEqual(get_student_record_book_number("student@example.com"), "-")
+        self.assertEqual(get_student_record_book_number("pmib-231@volsu.ru"), "-")
+        self.assertEqual(get_student_record_book_number("pmib-231_test@volsu.ru"), "-")
+
+    def test_admin_column_returns_dash_for_non_students(self):
+        user = User.objects.create_user(
+            username="teacher",
+            email="pmib-231_634292@volsu.ru",
+            password="password",
+        )
+        user.profile.role = "teacher"
+        user.profile.save(update_fields=["role"])
+
+        self.assertEqual(self.admin.get_record_book_number(user), "-")

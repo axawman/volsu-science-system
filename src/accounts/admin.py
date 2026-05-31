@@ -41,6 +41,22 @@ def other_admins_exist(target):
     )
 
 
+def get_student_record_book_number(email):
+    if not email:
+        return "-"
+
+    try:
+        local_part, domain = email.strip().lower().split("@", 1)
+        _, record_book_number = local_part.rsplit("_", 1)
+    except ValueError:
+        return "-"
+
+    if domain != "volsu.ru" or not record_book_number.isdigit():
+        return "-"
+
+    return record_book_number
+
+
 class ProfileInline(admin.StackedInline):
     model = Profile
     fk_name = "user"
@@ -76,6 +92,7 @@ class UserAdmin(BaseUserAdmin):
         "email",
         "get_full_name",
         "get_profile_role",
+        "get_record_book_number",
         "is_staff",
         "is_active",
         "date_joined",
@@ -104,6 +121,13 @@ class UserAdmin(BaseUserAdmin):
         if hasattr(obj, "profile"):
             return obj.profile.role_name
         return "-"
+
+    @admin.display(description="Зачетная книжка")
+    def get_record_book_number(self, obj):
+        if hasattr(obj, "profile") and not obj.profile.is_student():
+            return "-"
+
+        return get_student_record_book_number(obj.email)
 
     def get_readonly_fields(self, request, obj=None):
         readonly_fields = list(super().get_readonly_fields(request, obj))
