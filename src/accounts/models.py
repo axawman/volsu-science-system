@@ -30,6 +30,7 @@ class Profile(models.Model):
     bio = models.TextField("О себе", blank=True)
     photo = models.ImageField("Фотография", upload_to="profile_photos/", blank=True, null=True)
     created_at = models.DateTimeField("Дата создания", auto_now_add=True)
+    last_seen_at = models.DateTimeField("Был онлайн", blank=True, null=True)
     study_group = models.ForeignKey(
         StudyGroup,
         on_delete=models.SET_NULL,
@@ -114,6 +115,12 @@ class GroupChatMessage(models.Model):
         blank=True,
         related_name="read_group_chat_messages",
         verbose_name="Кем прочитано",
+    )
+    hidden_for = models.ManyToManyField(
+        User,
+        blank=True,
+        related_name="hidden_group_chat_messages",
+        verbose_name="Скрыто для пользователей",
     )
     created_at = models.DateTimeField("Дата создания", auto_now_add=True)
     edited_at = models.DateTimeField("Дата редактирования", blank=True, null=True)

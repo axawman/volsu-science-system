@@ -22,6 +22,7 @@ from django.db import connection, transaction
 from django.core.management.color import no_style
 from django.http import FileResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
@@ -39,6 +40,7 @@ REGISTRATION_CODE_SESSION_KEY = "registration_email_code"
 REGISTRATION_CODE_COOLDOWNS_SESSION_KEY = "registration_email_code_cooldowns"
 REGISTRATION_CODE_TTL_MINUTES = 5
 REGISTRATION_CODE_RESEND_COOLDOWN_SECONDS = 60
+GROUP_CHAT_ONLINE_WINDOW_SECONDS = 120
 
 EXCLUDED_DUMPDATA_MODELS = [
     "admin.logentry",
@@ -256,39 +258,38 @@ def edit_profile_view(request):
     return render(request, "accounts/edit_profile.html", {"form": form})
 
 
-@login_required
-def group_chat_view(request):
-    profile = request.user.profile
-    study_group = profile.study_group or assign_study_group_from_email(profile)
+def _get_user_study_group(user):
+    profile = user.profile
+    return profile.study_group or assign_study_group_from_email(profile)
 
-    if not study_group:
-        return render(request, "accounts/group_chat.html", {
-            "study_group": None,
-            "members": [],
-            "chat_messages": [],
-            "message_form": GroupChatMessageForm(study_group=None),
-        })
 
-    if request.method == "POST":
-        message_form = GroupChatMessageForm(request.POST, study_group=study_group)
-        if message_form.is_valid():
-            message = message_form.save(commit=False)
-            message.study_group = study_group
-            message.author = request.user
-            message.save()
-            message.read_by.add(request.user)
-            return redirect("group_chat")
-    else:
-        message_form = GroupChatMessageForm(study_group=study_group)
+def _touch_group_chat_presence(user):
+    Profile.objects.filter(id=user.profile.id).update(last_seen_at=timezone.now())
+    user.profile.last_seen_at = timezone.now()
 
-    members = (
+
+def _get_online_member_ids(study_group):
+    online_since = timezone.now() - timedelta(seconds=GROUP_CHAT_ONLINE_WINDOW_SECONDS)
+    return set(
+        study_group.members
+        .filter(role="student", last_seen_at__gte=online_since)
+        .values_list("user_id", flat=True)
+    )
+
+
+def _get_group_chat_members(study_group):
+    return (
         study_group.members
         .select_related("user")
         .filter(role="student")
         .order_by("full_name", "user__username")
     )
+
+
+def _get_group_chat_messages(study_group, user):
     chat_messages = (
         study_group.messages
+        .exclude(hidden_for=user)
         .select_related("author", "author__profile", "reply_to", "reply_to__author", "reply_to__author__profile")
         .prefetch_related(
             Prefetch("read_by", queryset=User.objects.only("id")),
@@ -299,16 +300,17 @@ def group_chat_view(request):
     unread_messages = [
         message
         for message in chat_messages
-        if message.author_id != request.user.id
-        and request.user.id not in {reader.id for reader in message.read_by.all()}
+        if message.author_id != user.id
+        and user.id not in {reader.id for reader in message.read_by.all()}
     ]
 
     for message in unread_messages:
-        message.read_by.add(request.user)
+        message.read_by.add(user)
 
     if unread_messages:
         chat_messages = list(
             study_group.messages
+            .exclude(hidden_for=user)
             .filter(id__in=[message.id for message in chat_messages])
             .select_related("author", "author__profile", "reply_to", "reply_to__author", "reply_to__author__profile")
             .prefetch_related(Prefetch("read_by", queryset=User.objects.only("id")))
@@ -321,9 +323,76 @@ def group_chat_view(request):
             for reader in message.read_by.all()
         )
 
+    return chat_messages
+
+
+def _group_chat_payload(request, study_group):
+    members = _get_group_chat_members(study_group)
+    online_member_ids = _get_online_member_ids(study_group)
+    chat_messages = _get_group_chat_messages(study_group, request.user)
+    html = render_to_string(
+        "accounts/_group_chat_messages.html",
+        {
+            "chat_messages": chat_messages,
+            "request": request,
+        },
+        request=request,
+    )
+
+    return {
+        "html": html,
+        "online_count": len(online_member_ids),
+        "online_member_ids": list(online_member_ids),
+        "member_count": members.count(),
+    }
+
+
+def _group_chat_json_response(request, study_group):
+    return JsonResponse(_group_chat_payload(request, study_group))
+
+
+@login_required
+def group_chat_view(request):
+    profile = request.user.profile
+    study_group = _get_user_study_group(request.user)
+
+    if not study_group:
+        return render(request, "accounts/group_chat.html", {
+            "study_group": None,
+            "members": [],
+            "chat_messages": [],
+            "message_form": GroupChatMessageForm(study_group=None),
+            "online_member_ids": set(),
+            "online_count": 0,
+        })
+
+    _touch_group_chat_presence(request.user)
+
+    if request.method == "POST":
+        message_form = GroupChatMessageForm(request.POST, study_group=study_group)
+        if message_form.is_valid():
+            message = message_form.save(commit=False)
+            message.study_group = study_group
+            message.author = request.user
+            message.save()
+            message.read_by.add(request.user)
+            if request.headers.get("x-requested-with") == "XMLHttpRequest":
+                return _group_chat_json_response(request, study_group)
+            return redirect("group_chat")
+        if request.headers.get("x-requested-with") == "XMLHttpRequest":
+            return JsonResponse({"errors": message_form.errors}, status=400)
+    else:
+        message_form = GroupChatMessageForm(study_group=study_group)
+
+    members = _get_group_chat_members(study_group)
+    online_member_ids = _get_online_member_ids(study_group)
+    chat_messages = _get_group_chat_messages(study_group, request.user)
+
     return render(request, "accounts/group_chat.html", {
         "study_group": study_group,
         "members": members,
+        "online_member_ids": online_member_ids,
+        "online_count": len(online_member_ids),
         "chat_messages": chat_messages,
         "message_form": message_form,
     })
@@ -333,7 +402,7 @@ def group_chat_view(request):
 @require_POST
 def edit_group_chat_message_view(request, message_id):
     profile = request.user.profile
-    study_group = profile.study_group or assign_study_group_from_email(profile)
+    study_group = _get_user_study_group(request.user)
     message = get_object_or_404(
         GroupChatMessage,
         id=message_id,
@@ -348,6 +417,9 @@ def edit_group_chat_message_view(request, message_id):
         edited_message.save(update_fields=["text", "reply_to"])
         edited_message.mark_edited()
 
+    if request.headers.get("x-requested-with") == "XMLHttpRequest":
+        return _group_chat_json_response(request, study_group)
+
     return redirect("group_chat")
 
 
@@ -355,16 +427,53 @@ def edit_group_chat_message_view(request, message_id):
 @require_POST
 def delete_group_chat_message_view(request, message_id):
     profile = request.user.profile
-    study_group = profile.study_group or assign_study_group_from_email(profile)
+    study_group = _get_user_study_group(request.user)
     message = get_object_or_404(
         GroupChatMessage,
         id=message_id,
+        study_group=study_group,
+    )
+    delete_scope = request.POST.get("scope", "me")
+
+    if delete_scope == "all" and message.author == request.user and not message.is_deleted:
+        message.mark_deleted()
+    else:
+        message.hidden_for.add(request.user)
+
+    if request.headers.get("x-requested-with") == "XMLHttpRequest":
+        return _group_chat_json_response(request, study_group)
+
+    return redirect("group_chat")
+
+
+@login_required
+def group_chat_updates_view(request):
+    study_group = _get_user_study_group(request.user)
+    if not study_group:
+        return JsonResponse({"html": "", "online_count": 0, "online_member_ids": []})
+
+    _touch_group_chat_presence(request.user)
+    return _group_chat_json_response(request, study_group)
+
+
+@login_required
+def group_chat_message_readers_view(request, message_id):
+    study_group = _get_user_study_group(request.user)
+    message = get_object_or_404(
+        GroupChatMessage.objects.prefetch_related("read_by", "read_by__profile"),
+        id=message_id,
         author=request.user,
         study_group=study_group,
-        is_deleted=False,
     )
-    message.mark_deleted()
-    return redirect("group_chat")
+    readers = [
+        {
+            "name": reader.profile.short_name,
+            "url": request.build_absolute_uri(f"/accounts/users/{reader.username}/"),
+        }
+        for reader in message.read_by.all()
+        if reader.id != request.user.id
+    ]
+    return JsonResponse({"readers": readers})
 
 
 @admin_required

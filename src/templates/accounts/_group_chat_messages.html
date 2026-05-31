@@ -1,0 +1,114 @@
+{% for message in chat_messages %}
+    <article class="group-message {% if message.author == request.user %}is-own{% endif %}"
+             id="message-{{ message.id }}"
+             data-message-row
+             data-message-id="{{ message.id }}"
+             data-message-own="{% if message.author == request.user %}1{% else %}0{% endif %}"
+             data-message-author="{{ message.author.profile.short_name }}"
+             data-message-text="{{ message.text|truncatechars:140 }}"
+             data-edit-url="{% url 'edit_group_chat_message' message.id %}"
+             data-delete-url="{% url 'delete_group_chat_message' message.id %}"
+             data-readers-url="{% url 'group_chat_readers' message.id %}">
+        <a class="group-message-avatar-link" href="{% url 'public_profile' message.author.username %}">
+            {% if message.author.profile.photo %}
+                <img src="{{ message.author.profile.photo.url }}" class="group-message-avatar" alt="Фото автора">
+            {% else %}
+                <span class="group-message-avatar group-message-avatar-placeholder">
+                    {{ message.author.profile.avatar_initial }}
+                </span>
+            {% endif %}
+        </a>
+        <div class="group-message-bubble">
+            {% if message.reply_to %}
+                <a class="group-message-reply-preview" href="#message-{{ message.reply_to.id }}" data-scroll-reply>
+                    <span>{{ message.reply_to.author.profile.short_name }}</span>
+                    {% if message.reply_to.is_deleted %}
+                        <small>Сообщение удалено</small>
+                    {% else %}
+                        <small>{{ message.reply_to.text|truncatechars:110 }}</small>
+                    {% endif %}
+                </a>
+            {% endif %}
+            <div class="group-message-content">
+                <div class="group-message-meta">
+                    <a href="{% url 'public_profile' message.author.username %}">
+                        {{ message.author.profile.short_name }}
+                    </a>
+                    <time datetime="{{ message.created_at|date:'c' }}">
+                        {{ message.created_at|date:"d.m.Y H:i" }}
+                    </time>
+                    {% if message.edited_at %}
+                        <span class="group-message-edited">изменено</span>
+                    {% endif %}
+                </div>
+                {% if message.is_deleted %}
+                    <div class="group-message-text is-deleted">Сообщение удалено</div>
+                {% else %}
+                    <div class="group-message-text">{{ message.text|linebreaksbr }}</div>
+                {% endif %}
+            </div>
+            <div class="group-message-footer">
+                <div class="group-message-actions">
+                    {% if not message.is_deleted %}
+                        <button class="group-message-action" type="button" data-reply-message="{{ message.id }}">
+                            Ответить
+                        </button>
+                    {% endif %}
+                    <form method="post" action="{% url 'delete_group_chat_message' message.id %}" data-delete-form>
+                        {% csrf_token %}
+                        <input type="hidden" name="scope" value="me">
+                        <button class="group-message-action" type="submit">Удалить у меня</button>
+                    </form>
+                    {% if message.author == request.user and not message.is_deleted %}
+                        <button class="group-message-action" type="button" data-edit-message="{{ message.id }}">
+                            Редактировать
+                        </button>
+                        <form method="post" action="{% url 'delete_group_chat_message' message.id %}" data-delete-form>
+                            {% csrf_token %}
+                            <input type="hidden" name="scope" value="all">
+                            <button class="group-message-action danger" type="submit">Удалить у всех</button>
+                        </form>
+                    {% endif %}
+                </div>
+                {% if message.author == request.user %}
+                    {% if message.has_been_read_by_others %}
+                        <button class="group-message-read-state"
+                                type="button"
+                                title="Просмотрено"
+                                data-show-readers="{{ message.id }}">✓✓</button>
+                    {% else %}
+                        <span class="group-message-read-state" title="Получено">✓</span>
+                    {% endif %}
+                {% endif %}
+            </div>
+            {% if message.author == request.user and not message.is_deleted %}
+                <form class="group-message-edit-form"
+                      method="post"
+                      action="{% url 'edit_group_chat_message' message.id %}"
+                      data-edit-form="{{ message.id }}"
+                      hidden>
+                    {% csrf_token %}
+                    <input type="hidden"
+                           name="reply_to"
+                           value="{% if message.reply_to %}{{ message.reply_to.id }}{% endif %}">
+                    <textarea name="text"
+                              class="form-control"
+                              rows="2"
+                              maxlength="2000"
+                              required>{{ message.text }}</textarea>
+                    <div class="group-message-edit-actions">
+                        <button class="btn btn-primary btn-sm" type="submit">Сохранить</button>
+                        <button class="btn btn-outline-primary btn-sm"
+                                type="button"
+                                data-cancel-edit="{{ message.id }}">Отмена</button>
+                    </div>
+                </form>
+            {% endif %}
+            <div class="mobile-message-hit-area" data-open-mobile-actions></div>
+        </div>
+    </article>
+{% empty %}
+    <div class="group-chat-empty">
+        <p class="mb-0">Сообщений пока нет.</p>
+    </div>
+{% endfor %}

@@ -263,7 +263,7 @@ class StudyGroupChatTests(TestCase):
         message.refresh_from_db()
         self.assertEqual(message.text, "Нельзя редактировать")
 
-    def test_author_can_delete_own_group_chat_message(self):
+    def test_user_can_hide_message_for_self(self):
         user = self.create_student("first", "pmib-231_111111@volsu.ru")
         message = GroupChatMessage.objects.create(
             study_group=user.profile.study_group,
@@ -274,6 +274,26 @@ class StudyGroupChatTests(TestCase):
 
         response = self.client.post(
             reverse("delete_group_chat_message", kwargs={"message_id": message.id}),
+            {"scope": "me"},
+        )
+
+        self.assertRedirects(response, reverse("group_chat"))
+        message.refresh_from_db()
+        self.assertFalse(message.is_deleted)
+        self.assertTrue(message.hidden_for.filter(id=user.id).exists())
+
+    def test_author_can_delete_message_for_everyone(self):
+        user = self.create_student("first", "pmib-231_111111@volsu.ru")
+        message = GroupChatMessage.objects.create(
+            study_group=user.profile.study_group,
+            author=user,
+            text="Удалить",
+        )
+        self.client.force_login(user)
+
+        response = self.client.post(
+            reverse("delete_group_chat_message", kwargs={"message_id": message.id}),
+            {"scope": "all"},
         )
 
         self.assertRedirects(response, reverse("group_chat"))
@@ -281,3 +301,19 @@ class StudyGroupChatTests(TestCase):
         self.assertTrue(message.is_deleted)
         self.assertEqual(message.text, "")
         self.assertIsNotNone(message.deleted_at)
+
+    def test_group_chat_readers_endpoint_returns_readers(self):
+        author = self.create_student("first", "pmib-231_111111@volsu.ru")
+        reader = self.create_student("second", "pmib-231_222222@volsu.ru")
+        message = GroupChatMessage.objects.create(
+            study_group=author.profile.study_group,
+            author=author,
+            text="Прочитано",
+        )
+        message.read_by.add(author, reader)
+        self.client.force_login(author)
+
+        response = self.client.get(reverse("group_chat_readers", kwargs={"message_id": message.id}))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["readers"][0]["name"], reader.profile.short_name)

@@ -10,13 +10,19 @@
                 <button class="group-chat-title" type="button" data-bs-toggle="collapse" data-bs-target="#groupMembers">
                     {{ study_group.display_name }}
                 </button>
-                <span class="text-soft small">{{ members|length }} участников</span>
+                <span class="group-online-pill {% if online_count %}is-online{% else %}is-offline{% endif %}"
+                      id="group-online-pill">
+                    <span class="group-online-dot"></span>
+                    <span id="group-online-count">{{ online_count }}</span> онлайн
+                </span>
             </header>
 
             <div class="collapse group-members-panel" id="groupMembers">
                 <div class="group-members-grid">
                     {% for member in members %}
-                        <a class="group-member" href="{% url 'public_profile' member.user.username %}">
+                        <a class="group-member"
+                           href="{% url 'public_profile' member.user.username %}"
+                           data-member-id="{{ member.user_id }}">
                             {% if member.photo %}
                                 <img src="{{ member.photo.url }}" class="group-member-avatar" alt="Фото участника">
                             {% else %}
@@ -25,6 +31,9 @@
                                 </span>
                             {% endif %}
                             <span class="group-member-name">{{ member.short_name }}</span>
+                            <span class="member-online-dot
+                                         {% if member.user_id in online_member_ids %}is-online{% endif %}">
+                            </span>
                         </a>
                     {% empty %}
                         <p class="text-soft mb-0">В этой группе пока нет участников.</p>
@@ -33,122 +42,7 @@
             </div>
 
             <div class="group-chat-messages" id="group-chat-messages">
-                {% for message in chat_messages %}
-                    <article class="group-message {% if message.author == request.user %}is-own{% endif %}"
-                             id="message-{{ message.id }}"
-                             data-message-row
-                             data-message-id="{{ message.id }}"
-                             data-message-own="{% if message.author == request.user %}1{% else %}0{% endif %}"
-                             data-message-author="{{ message.author.profile.short_name }}"
-                             data-message-text="{{ message.text|truncatechars:140 }}"
-                             data-edit-url="{% url 'edit_group_chat_message' message.id %}"
-                             data-delete-url="{% url 'delete_group_chat_message' message.id %}">
-                        <a class="group-message-avatar-link" href="{% url 'public_profile' message.author.username %}">
-                            {% if message.author.profile.photo %}
-                                <img src="{{ message.author.profile.photo.url }}"
-                                     class="group-message-avatar"
-                                     alt="Фото автора">
-                            {% else %}
-                                <span class="group-message-avatar group-message-avatar-placeholder">
-                                    {{ message.author.profile.avatar_initial }}
-                                </span>
-                            {% endif %}
-                        </a>
-                        <div class="group-message-bubble">
-                            {% if message.reply_to %}
-                                <a class="group-message-reply-preview"
-                                   href="#message-{{ message.reply_to.id }}"
-                                   data-scroll-reply>
-                                    <span>{{ message.reply_to.author.profile.short_name }}</span>
-                                    {% if message.reply_to.is_deleted %}
-                                        <small>Сообщение удалено</small>
-                                    {% else %}
-                                        <small>{{ message.reply_to.text|truncatechars:110 }}</small>
-                                    {% endif %}
-                                </a>
-                            {% endif %}
-                            <div class="group-message-content">
-                                <div class="group-message-meta">
-                                    <a href="{% url 'public_profile' message.author.username %}">
-                                        {{ message.author.profile.short_name }}
-                                    </a>
-                                    <time datetime="{{ message.created_at|date:'c' }}">
-                                        {{ message.created_at|date:"d.m.Y H:i" }}
-                                    </time>
-                                    {% if message.edited_at %}
-                                        <span class="group-message-edited">изменено</span>
-                                    {% endif %}
-                                </div>
-                                {% if message.is_deleted %}
-                                    <div class="group-message-text is-deleted">Сообщение удалено</div>
-                                {% else %}
-                                    <div class="group-message-text">{{ message.text|linebreaksbr }}</div>
-                                {% endif %}
-                            </div>
-                            <div class="group-message-footer">
-                                <div class="group-message-actions">
-                                    {% if not message.is_deleted %}
-                                        <button class="group-message-action"
-                                                type="button"
-                                                data-reply-message="{{ message.id }}">
-                                            Ответить
-                                        </button>
-                                    {% endif %}
-                                    {% if message.author == request.user and not message.is_deleted %}
-                                        <button class="group-message-action"
-                                                type="button"
-                                                data-edit-message="{{ message.id }}">
-                                            Редактировать
-                                        </button>
-                                        <form method="post"
-                                              action="{% url 'delete_group_chat_message' message.id %}"
-                                              data-confirm-delete>
-                                            {% csrf_token %}
-                                            <button class="group-message-action danger" type="submit">Удалить</button>
-                                        </form>
-                                    {% endif %}
-                                </div>
-                                {% if message.author == request.user %}
-                                    {% if message.has_been_read_by_others %}
-                                        <span class="group-message-read-state" title="Просмотрено">✓✓</span>
-                                    {% else %}
-                                        <span class="group-message-read-state" title="Получено">✓</span>
-                                    {% endif %}
-                                {% endif %}
-                            </div>
-                            {% if message.author == request.user and not message.is_deleted %}
-                                <form class="group-message-edit-form"
-                                      method="post"
-                                      action="{% url 'edit_group_chat_message' message.id %}"
-                                      data-edit-form="{{ message.id }}"
-                                      hidden>
-                                    {% csrf_token %}
-                                    <input type="hidden"
-                                           name="reply_to"
-                                           value="{% if message.reply_to %}{{ message.reply_to.id }}{% endif %}">
-                                    <textarea name="text"
-                                              class="form-control"
-                                              rows="2"
-                                              maxlength="2000"
-                                              required>{{ message.text }}</textarea>
-                                    <div class="group-message-edit-actions">
-                                        <button class="btn btn-primary btn-sm" type="submit">Сохранить</button>
-                                        <button class="btn btn-outline-primary btn-sm"
-                                                type="button"
-                                                data-cancel-edit="{{ message.id }}">
-                                            Отмена
-                                        </button>
-                                    </div>
-                                </form>
-                            {% endif %}
-                            <div class="mobile-message-hit-area" data-open-mobile-actions></div>
-                        </div>
-                    </article>
-                {% empty %}
-                    <div class="group-chat-empty">
-                        <p class="mb-0">Сообщений пока нет.</p>
-                    </div>
-                {% endfor %}
+                {% include "accounts/_group_chat_messages.html" %}
             </div>
 
             <form class="group-chat-form" method="post">
@@ -186,12 +80,33 @@
                                 <button class="btn btn-outline-primary" type="button" id="mobile-edit-message">
                                     Редактировать
                                 </button>
-                                <form method="post" id="mobile-delete-form">
+                                <form method="post" id="mobile-delete-me-form">
                                     {% csrf_token %}
-                                    <button class="btn btn-outline-danger w-100" type="submit">Удалить</button>
+                                    <input type="hidden" name="scope" value="me">
+                                    <button class="btn btn-outline-danger w-100" type="submit">Удалить у меня</button>
+                                </form>
+                                <form method="post" id="mobile-delete-all-form">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="scope" value="all">
+                                    <button class="btn btn-outline-danger w-100" type="submit">Удалить у всех</button>
                                 </form>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal fade" id="readersModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered modal-sm">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h2 class="modal-title h6 mb-0">Просмотрели</h2>
+                            <button type="button"
+                                    class="btn-close"
+                                    data-bs-dismiss="modal"
+                                    aria-label="Закрыть"></button>
+                        </div>
+                        <div class="modal-body" id="readers-modal-body"></div>
                     </div>
                 </div>
             </div>
@@ -236,6 +151,40 @@
         font-size: 1.2rem;
         font-weight: 700;
         padding: 0;
+    }
+
+    .group-online-pill {
+        align-items: center;
+        border: 1px solid var(--border-soft);
+        border-radius: 999px;
+        color: var(--text-muted);
+        display: inline-flex;
+        font-size: 0.82rem;
+        font-weight: 700;
+        gap: 0.4rem;
+        padding: 0.28rem 0.65rem;
+    }
+
+    .group-online-dot,
+    .member-online-dot {
+        border-radius: 50%;
+        display: inline-block;
+        height: 0.55rem;
+        width: 0.55rem;
+    }
+
+    .group-online-pill.is-online .group-online-dot,
+    .member-online-dot.is-online {
+        background: #16a34a;
+    }
+
+    .group-online-pill.is-offline .group-online-dot {
+        background: #dc2626;
+    }
+
+    .member-online-dot {
+        background: var(--border-soft);
+        margin-left: auto;
     }
 
     .group-members-panel {
@@ -455,6 +404,8 @@
     }
 
     .group-message-read-state {
+        background: none;
+        border: 0;
         color: var(--primary-soft);
         flex: 0 0 auto;
         font-size: 0.8rem;
@@ -560,9 +511,16 @@
     const actionsModalEl = document.getElementById("messageActionsModal");
     const mobileReplyButton = document.getElementById("mobile-reply-message");
     const mobileEditButton = document.getElementById("mobile-edit-message");
-    const mobileDeleteForm = document.getElementById("mobile-delete-form");
+    const mobileDeleteMeForm = document.getElementById("mobile-delete-me-form");
+    const mobileDeleteAllForm = document.getElementById("mobile-delete-all-form");
+    const readersModalEl = document.getElementById("readersModal");
+    const readersModalBody = document.getElementById("readers-modal-body");
+    const onlinePill = document.getElementById("group-online-pill");
+    const onlineCount = document.getElementById("group-online-count");
+    const updatesUrl = "{% url 'group_chat_updates' %}";
     let activeMessage = null;
     let actionsModal = null;
+    let readersModal = null;
 
     function getActionsModal() {
         if (!actionsModal && actionsModalEl && window.bootstrap) {
@@ -570,6 +528,18 @@
         }
 
         return actionsModal;
+    }
+
+    function getReadersModal() {
+        if (!readersModal && readersModalEl && window.bootstrap) {
+            readersModal = new window.bootstrap.Modal(readersModalEl);
+        }
+
+        return readersModal;
+    }
+
+    function getCsrfToken(form) {
+        return form.querySelector("input[name='csrfmiddlewaretoken']").value;
     }
 
     if (messages) {
@@ -604,84 +574,233 @@
         }
     }
 
-    document.querySelectorAll("[data-edit-message]").forEach((button) => {
-        button.addEventListener("click", () => {
-            const messageId = button.dataset.editMessage;
-            const form = document.querySelector(`[data-edit-form="${messageId}"]`);
+    function updateOnline(payload) {
+        if (onlineCount) {
+            onlineCount.textContent = payload.online_count || 0;
+        }
 
-            if (!form) {
-                return;
-            }
+        if (onlinePill) {
+            onlinePill.classList.toggle("is-online", (payload.online_count || 0) > 0);
+            onlinePill.classList.toggle("is-offline", (payload.online_count || 0) === 0);
+        }
 
-            form.hidden = false;
-            form.querySelector("textarea").focus();
-        });
-    });
-
-    document.querySelectorAll("[data-cancel-edit]").forEach((button) => {
-        button.addEventListener("click", () => {
-            const form = document.querySelector(`[data-edit-form="${button.dataset.cancelEdit}"]`);
-
-            if (form) {
-                form.hidden = true;
+        document.querySelectorAll("[data-member-id]").forEach((member) => {
+            const dot = member.querySelector(".member-online-dot");
+            const isOnline = (payload.online_member_ids || []).includes(Number(member.dataset.memberId));
+            if (dot) {
+                dot.classList.toggle("is-online", isOnline);
             }
         });
-    });
+    }
 
-    document.querySelectorAll("[data-confirm-delete]").forEach((form) => {
-        form.addEventListener("submit", (event) => {
-            if (!window.confirm("Удалить сообщение?")) {
+    function replaceMessages(payload) {
+        if (!messages || !payload.html) {
+            return;
+        }
+
+        const wasNearBottom = messages.scrollHeight - messages.scrollTop - messages.clientHeight < 120;
+        messages.innerHTML = payload.html;
+        bindMessageActions();
+        updateOnline(payload);
+
+        if (wasNearBottom) {
+            messages.scrollTop = messages.scrollHeight;
+        }
+    }
+
+    async function submitAjaxForm(form) {
+        const response = await fetch(form.action || window.location.href, {
+            method: "POST",
+            body: new FormData(form),
+            headers: {
+                "X-Requested-With": "XMLHttpRequest",
+            },
+        });
+
+        if (response.ok) {
+            replaceMessages(await response.json());
+            return true;
+        }
+
+        return false;
+    }
+
+    function showEditForm(messageId) {
+        const form = document.querySelector(`[data-edit-form="${messageId}"]`);
+
+        if (!form) {
+            return;
+        }
+
+        form.hidden = false;
+        form.querySelector("textarea").focus();
+    }
+
+    function bindMessageActions() {
+        document.querySelectorAll("[data-edit-message]").forEach((button) => {
+            button.addEventListener("click", () => {
+                showEditForm(button.dataset.editMessage);
+            });
+        });
+
+        document.querySelectorAll("[data-cancel-edit]").forEach((button) => {
+            button.addEventListener("click", () => {
+                const form = document.querySelector(`[data-edit-form="${button.dataset.cancelEdit}"]`);
+
+                if (form) {
+                    form.hidden = true;
+                }
+            });
+        });
+
+        document.querySelectorAll("[data-delete-form]").forEach((form) => {
+            form.addEventListener("submit", async (event) => {
                 event.preventDefault();
+
+                if (window.confirm("Удалить сообщение?")) {
+                    await submitAjaxForm(form);
+                }
+            });
+        });
+
+        document.querySelectorAll("[data-reply-message]").forEach((button) => {
+            button.addEventListener("click", () => {
+                setReply(button.dataset.replyMessage);
+            });
+        });
+
+        document.querySelectorAll(".group-message-edit-form").forEach((form) => {
+            form.addEventListener("submit", async (event) => {
+                event.preventDefault();
+                if (await submitAjaxForm(form)) {
+                    form.hidden = true;
+                }
+            });
+        });
+
+        document.querySelectorAll("[data-show-readers]").forEach((button) => {
+            button.addEventListener("click", async () => {
+                const row = getMessageRow(button.dataset.showReaders);
+                const response = await fetch(row.dataset.readersUrl);
+                const data = await response.json();
+                readersModalBody.innerHTML = data.readers.length
+                    ? data.readers.map((reader) => `<a href="${reader.url}">${reader.name}</a>`).join("")
+                    : "<p class=\"text-soft mb-0\">Пока никто не просмотрел.</p>";
+                getReadersModal().show();
+            });
+        });
+
+        document.querySelectorAll("[data-scroll-reply]").forEach((link) => {
+            link.addEventListener("click", () => {
+                window.setTimeout(() => {
+                    const target = document.querySelector(link.getAttribute("href"));
+
+                    if (!target) {
+                        return;
+                    }
+
+                    target.classList.add("is-highlighted");
+                    target.scrollIntoView({ block: "center" });
+
+                    window.setTimeout(() => {
+                        target.classList.remove("is-highlighted");
+                    }, 1200);
+                }, 0);
+            });
+        });
+
+        document.querySelectorAll("[data-open-mobile-actions]").forEach((hitArea) => {
+            hitArea.addEventListener("click", (event) => {
+                const row = event.target.closest("[data-message-row]");
+                const modal = getActionsModal();
+
+                if (!row || !modal) {
+                    return;
+                }
+
+                activeMessage = row;
+                const isOwn = row.dataset.messageOwn === "1";
+                mobileEditButton.hidden = !isOwn;
+                mobileDeleteAllForm.hidden = !isOwn;
+                mobileDeleteMeForm.action = row.dataset.deleteUrl;
+                mobileDeleteAllForm.action = row.dataset.deleteUrl;
+                modal.show();
+            });
+        });
+
+        document.querySelectorAll(".group-message-edit-form textarea").forEach((textarea) => {
+            bindEnterSubmit(textarea);
+        });
+    }
+
+    async function refreshChat() {
+        if (document.visibilityState !== "visible" || (textInput && textInput.value.trim() !== "")) {
+            return;
+        }
+
+        const response = await fetch(updatesUrl, {
+            headers: {
+                "X-Requested-With": "XMLHttpRequest",
+            },
+        });
+
+        if (response.ok) {
+            replaceMessages(await response.json());
+        }
+    }
+
+    function bindEnterSubmit(textarea) {
+        textarea.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                textarea.form.requestSubmit();
             }
         });
-    });
+    }
 
-    document.querySelectorAll("[data-reply-message]").forEach((button) => {
-        button.addEventListener("click", () => {
-            setReply(button.dataset.replyMessage);
+    bindMessageActions();
+
+    if (sendForm) {
+        sendForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
+
+            if (await submitAjaxForm(sendForm)) {
+                sendForm.reset();
+                clearReply();
+                messages.scrollTop = messages.scrollHeight;
+            }
         });
-    });
+    }
+
+    if (mobileDeleteMeForm) {
+        mobileDeleteMeForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
+
+            if (window.confirm("Удалить сообщение у вас?")) {
+                await submitAjaxForm(mobileDeleteMeForm);
+                getActionsModal().hide();
+            }
+        });
+    }
+
+    if (mobileDeleteAllForm) {
+        mobileDeleteAllForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
+
+            if (window.confirm("Удалить сообщение у всех?")) {
+                await submitAjaxForm(mobileDeleteAllForm);
+                getActionsModal().hide();
+            }
+        });
+    }
+
+    if (textInput) {
+        bindEnterSubmit(textInput);
+    }
 
     if (replyClear) {
         replyClear.addEventListener("click", clearReply);
     }
-
-    document.querySelectorAll("[data-scroll-reply]").forEach((link) => {
-        link.addEventListener("click", () => {
-            window.setTimeout(() => {
-                const target = document.querySelector(link.getAttribute("href"));
-
-                if (!target) {
-                    return;
-                }
-
-                target.classList.add("is-highlighted");
-                target.scrollIntoView({ block: "center" });
-
-                window.setTimeout(() => {
-                    target.classList.remove("is-highlighted");
-                }, 1200);
-            }, 0);
-        });
-    });
-
-    document.querySelectorAll("[data-open-mobile-actions]").forEach((hitArea) => {
-        hitArea.addEventListener("click", (event) => {
-            const row = event.target.closest("[data-message-row]");
-            const modal = getActionsModal();
-
-            if (!row || !modal) {
-                return;
-            }
-
-            activeMessage = row;
-            const isOwn = row.dataset.messageOwn === "1";
-            mobileEditButton.hidden = !isOwn;
-            mobileDeleteForm.hidden = !isOwn;
-            mobileDeleteForm.action = row.dataset.deleteUrl;
-            modal.show();
-        });
-    });
 
     if (mobileReplyButton) {
         mobileReplyButton.addEventListener("click", () => {
@@ -694,46 +813,14 @@
 
     if (mobileEditButton) {
         mobileEditButton.addEventListener("click", () => {
-            if (!activeMessage) {
-                return;
-            }
-
-            const form = document.querySelector(`[data-edit-form="${activeMessage.dataset.messageId}"]`);
-            if (form) {
-                form.hidden = false;
-                form.querySelector("textarea").focus();
-            }
-
-            getActionsModal().hide();
-        });
-    }
-
-    if (mobileDeleteForm) {
-        mobileDeleteForm.addEventListener("submit", (event) => {
-            if (!window.confirm("Удалить сообщение?")) {
-                event.preventDefault();
+            if (activeMessage) {
+                showEditForm(activeMessage.dataset.messageId);
+                getActionsModal().hide();
             }
         });
     }
 
-    document.querySelectorAll(".group-chat-form textarea, .group-message-edit-form textarea").forEach((textarea) => {
-        textarea.addEventListener("keydown", (event) => {
-            if (event.key === "Enter" && !event.shiftKey) {
-                event.preventDefault();
-                textarea.form.requestSubmit();
-            }
-        });
-    });
-
-    if (!textInput || !sendForm) {
-        return;
-    }
-
-    window.setInterval(() => {
-        if (document.visibilityState === "visible" && textInput.value.trim() === "") {
-            window.location.reload();
-        }
-    }, 30000);
+    window.setInterval(refreshChat, 5000);
 })();
 </script>
 {% endblock %}
