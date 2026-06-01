@@ -164,6 +164,7 @@
         grid-template-rows: auto auto minmax(0, 1fr) auto;
         height: 100%;
         overflow: hidden;
+        position: relative;
     }
 
     .group-chat-card.card-soft:hover {
@@ -520,10 +521,12 @@
 
     .group-chat-form textarea {
         border-radius: 999px;
+        line-height: 1.35;
         max-height: 150px;
-        min-height: 46px;
-        padding-right: 3.1rem;
-        resize: vertical;
+        min-height: 52px;
+        padding: 0.9rem 3.1rem 0.9rem 1rem;
+        resize: none;
+        width: 100%;
     }
 
     .group-chat-send-button {
@@ -531,7 +534,6 @@
         background: var(--primary-soft);
         border: 0;
         border-radius: 50%;
-        bottom: 0.35rem;
         color: var(--primary-contrast);
         display: inline-flex;
         height: 2.25rem;
@@ -539,6 +541,8 @@
         padding: 0;
         position: absolute;
         right: 0.35rem;
+        top: 50%;
+        transform: translateY(-50%);
         transition: 0.15s ease;
         width: 2.25rem;
     }
@@ -574,19 +578,23 @@
     @media (max-width: 767px) {
         body:has(.group-chat-shell) {
             overflow: hidden;
+            overflow-x: hidden;
         }
 
         body:has(.group-chat-shell) .page-wrapper {
             height: var(--chat-mobile-height, calc(100dvh - 4.75rem));
             max-width: none;
             padding: 0;
+            width: 100%;
         }
 
         .group-chat-shell {
             height: 100%;
-            margin-left: -0.75rem;
-            margin-right: -0.75rem;
+            margin-left: 0;
+            margin-right: 0;
+            max-width: 100%;
             min-height: 0;
+            width: 100%;
         }
 
         .group-chat-card {
@@ -596,8 +604,20 @@
         }
 
         .group-members-panel {
+            background: var(--card-bg);
+            box-shadow: var(--shadow-soft);
+            left: 0;
             max-height: 34dvh;
             overflow-y: auto;
+            position: absolute;
+            right: 0;
+            top: var(--group-chat-header-height, 72px);
+            z-index: 4;
+        }
+
+        .group-chat-card:has(#groupMembers.show) .group-chat-form,
+        .group-chat-card:has(#groupMembers.collapsing) .group-chat-form {
+            display: none;
         }
 
         .group-chat-messages {
@@ -627,7 +647,7 @@
 
         .group-chat-form textarea {
             max-height: 96px;
-            min-height: 44px;
+            min-height: 50px;
         }
     }
 </style>
@@ -655,6 +675,7 @@
     const onlinePill = document.getElementById("group-online-pill");
     const onlineCount = document.getElementById("group-online-count");
     const memberTotal = document.getElementById("group-member-total");
+    const chatHeader = document.querySelector(".group-chat-header");
     const updatesUrl = "{% url 'group_chat_updates' %}";
     let activeMessage = null;
     let activeDeleteUrl = "";
@@ -693,13 +714,21 @@
     function updateMobileChatHeight() {
         if (!window.visualViewport || window.innerWidth > 767) {
             document.documentElement.style.removeProperty("--chat-mobile-height");
+            document.documentElement.style.removeProperty("--group-chat-header-height");
             return;
         }
 
         const navbar = document.querySelector(".navbar");
         const navbarHeight = navbar ? navbar.getBoundingClientRect().height : 0;
-        const availableHeight = Math.max(360, window.visualViewport.height - navbarHeight);
+        const availableHeight = Math.max(220, window.visualViewport.height - navbarHeight);
         document.documentElement.style.setProperty("--chat-mobile-height", `${availableHeight}px`);
+
+        if (chatHeader) {
+            document.documentElement.style.setProperty(
+                "--group-chat-header-height",
+                `${chatHeader.getBoundingClientRect().height}px`,
+            );
+        }
     }
 
     function updateSendButton() {

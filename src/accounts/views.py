@@ -289,6 +289,7 @@ def _get_group_chat_members(study_group):
 def _get_group_chat_messages(study_group, user):
     chat_messages = (
         study_group.messages
+        .filter(is_deleted=False)
         .exclude(hidden_for=user)
         .select_related("author", "author__profile", "reply_to", "reply_to__author", "reply_to__author__profile")
         .prefetch_related(
@@ -310,6 +311,7 @@ def _get_group_chat_messages(study_group, user):
     if unread_messages:
         chat_messages = list(
             study_group.messages
+            .filter(is_deleted=False)
             .exclude(hidden_for=user)
             .filter(id__in=[message.id for message in chat_messages])
             .select_related("author", "author__profile", "reply_to", "reply_to__author", "reply_to__author__profile")

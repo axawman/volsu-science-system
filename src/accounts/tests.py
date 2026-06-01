@@ -328,6 +328,21 @@ class StudyGroupChatTests(TestCase):
         self.assertEqual(message.text, "")
         self.assertIsNotNone(message.deleted_at)
 
+    def test_deleted_for_everyone_message_is_not_rendered_in_chat(self):
+        user = self.create_student("first", "pmib-231_111111@volsu.ru")
+        message = GroupChatMessage.objects.create(
+            study_group=user.profile.study_group,
+            author=user,
+            text="Исчезающее сообщение",
+        )
+        message.mark_deleted()
+        self.client.force_login(user)
+
+        response = self.client.get(reverse("group_chat"))
+
+        self.assertNotContains(response, "Исчезающее сообщение")
+        self.assertNotContains(response, "Сообщение удалено")
+
     def test_group_chat_readers_endpoint_returns_readers(self):
         author = self.create_student("first", "pmib-231_111111@volsu.ru")
         reader = self.create_student("second", "pmib-231_222222@volsu.ru")
