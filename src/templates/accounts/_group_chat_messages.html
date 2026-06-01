@@ -15,7 +15,11 @@
         {% if message.starts_author_group %}
             <a class="group-message-avatar-link" href="{% url 'public_profile' message.author.username %}">
                 {% if message.author.profile.photo %}
-                    <img src="{{ message.author.profile.photo.url }}" class="group-message-avatar" alt="Фото автора">
+                    <img src="{{ message.author.profile.photo.url }}"
+                         class="group-message-avatar"
+                         width="34"
+                         height="34"
+                         alt="Фото автора">
                 {% else %}
                     <span class="group-message-avatar group-message-avatar-placeholder">
                         {{ message.author.profile.avatar_initial }}

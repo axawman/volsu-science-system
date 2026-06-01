@@ -30,7 +30,11 @@
                            href="{% url 'public_profile' member.user.username %}"
                            data-member-id="{{ member.user_id }}">
                             {% if member.photo %}
-                                <img src="{{ member.photo.url }}" class="group-member-avatar" alt="Фото участника">
+                                <img src="{{ member.photo.url }}"
+                                     class="group-member-avatar"
+                                     width="38"
+                                     height="38"
+                                     alt="Фото участника">
                             {% else %}
                                 <span class="group-member-avatar group-member-avatar-placeholder">
                                     {{ member.avatar_initial }}
@@ -494,14 +498,20 @@
     .group-chat-form {
         align-items: flex-end;
         border-top: 1px solid var(--border-soft);
+        background: var(--card-bg);
         display: grid;
         gap: 0.75rem;
         grid-template-columns: 1fr;
+        min-height: 0;
         padding: 1rem 1.25rem;
+        position: relative;
+        z-index: 3;
     }
 
     .group-chat-input-shell {
+        min-width: 0;
         position: relative;
+        width: 100%;
     }
 
     .reply-compose-preview {
@@ -509,6 +519,8 @@
         grid-column: 1 / -1;
         grid-template-columns: 1fr auto;
         margin: 0;
+        max-height: 4.5rem;
+        overflow: hidden;
     }
 
     .reply-compose-preview button {
@@ -521,6 +533,7 @@
 
     .group-chat-form textarea {
         border-radius: 999px;
+        box-sizing: border-box;
         line-height: 1.35;
         max-height: 150px;
         min-height: 52px;
@@ -584,6 +597,8 @@
         body:has(.group-chat-shell) .page-wrapper {
             height: var(--chat-mobile-height, calc(100dvh - 4.75rem));
             max-width: none;
+            min-height: 0;
+            overflow: hidden;
             padding: 0;
             width: 100%;
         }
@@ -601,6 +616,7 @@
             border-left: 0;
             border-radius: 0;
             border-right: 0;
+            grid-template-rows: auto minmax(0, 1fr) auto;
         }
 
         .group-members-panel {
@@ -613,6 +629,19 @@
             right: 0;
             top: var(--group-chat-header-height, 72px);
             z-index: 4;
+        }
+
+        .group-chat-header {
+            grid-row: 1;
+        }
+
+        .group-chat-messages {
+            grid-row: 2;
+            min-height: 0;
+        }
+
+        .group-chat-form {
+            grid-row: 3;
         }
 
         .group-chat-card:has(#groupMembers.show) .group-chat-form,
@@ -640,7 +669,6 @@
         }
 
         .group-chat-form {
-            background: var(--card-bg);
             padding: 0.8rem;
             padding-bottom: max(0.8rem, env(safe-area-inset-bottom));
         }
@@ -754,7 +782,7 @@
         replyAuthor.textContent = row.dataset.messageAuthor || "";
         replyText.textContent = row.dataset.messageText || "";
         replyPreview.hidden = false;
-        textInput.focus();
+        textInput.focus({ preventScroll: true });
     }
 
     function clearReply() {
