@@ -68,6 +68,15 @@ class Profile(models.Model):
         return name
 
     @property
+    def group_display_name(self):
+        name = (self.full_name or self.user.get_full_name() or self.user.username).strip()
+        parts = name.split()
+
+        if len(parts) >= 2:
+            return f"{parts[0]} {parts[1][0]}."
+        return name
+
+    @property
     def avatar_initial(self):
         name = (self.full_name or self.user.username).strip()
         return name[:1].upper() or "?"

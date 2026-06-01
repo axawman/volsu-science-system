@@ -7,9 +7,15 @@
     {% if study_group %}
         <section class="card-soft group-chat-card">
             <header class="group-chat-header">
-                <button class="group-chat-title" type="button" data-bs-toggle="collapse" data-bs-target="#groupMembers">
-                    {{ study_group.display_name }}
-                </button>
+                <div class="group-chat-heading">
+                    <button class="group-chat-title"
+                            type="button"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#groupMembers">
+                        {{ study_group.display_name }}
+                    </button>
+                    <span class="group-member-total" id="group-member-total">{{ member_count }} участников</span>
+                </div>
                 <span class="group-online-pill {% if online_count %}is-online{% else %}is-offline{% endif %}"
                       id="group-online-pill">
                     <span class="group-online-dot"></span>
@@ -30,7 +36,7 @@
                                     {{ member.avatar_initial }}
                                 </span>
                             {% endif %}
-                            <span class="group-member-name">{{ member.short_name }}</span>
+                            <span class="group-member-name">{{ member.group_display_name }}</span>
                             <span class="member-online-dot
                                          {% if member.user_id in online_member_ids %}is-online{% endif %}">
                             </span>
@@ -55,11 +61,18 @@
                     <button type="button" aria-label="Отменить ответ" id="reply-compose-clear">×</button>
                 </div>
                 {{ message_form.reply_to }}
-                {{ message_form.text }}
+                <div class="group-chat-input-shell">
+                    {{ message_form.text }}
+                    <button class="group-chat-send-button" type="submit" aria-label="Отправить сообщение" hidden>
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M3 11.5 20.5 3 16 21l-4.8-7.2L3 11.5Z"></path>
+                            <path d="m11.2 13.8 4.6-5.6"></path>
+                        </svg>
+                    </button>
+                </div>
                 {% if message_form.text.errors %}
                     <div class="invalid-feedback d-block">{{ message_form.text.errors|join:", " }}</div>
                 {% endif %}
-                <button class="btn btn-primary" type="submit">Отправить</button>
             </form>
 
             <div class="modal fade" id="messageActionsModal" tabindex="-1" aria-hidden="true">
@@ -166,6 +179,12 @@
         padding: 1rem 1.25rem;
     }
 
+    .group-chat-heading {
+        display: grid;
+        gap: 0.1rem;
+        min-width: 0;
+    }
+
     .group-chat-title {
         background: none;
         border: 0;
@@ -173,6 +192,13 @@
         font-size: 1.2rem;
         font-weight: 700;
         padding: 0;
+        text-align: left;
+    }
+
+    .group-member-total {
+        color: var(--text-muted);
+        font-size: 0.78rem;
+        font-weight: 700;
     }
 
     .group-online-pill {
@@ -469,8 +495,12 @@
         border-top: 1px solid var(--border-soft);
         display: grid;
         gap: 0.75rem;
-        grid-template-columns: 1fr auto;
+        grid-template-columns: 1fr;
         padding: 1rem 1.25rem;
+    }
+
+    .group-chat-input-shell {
+        position: relative;
     }
 
     .reply-compose-preview {
@@ -489,8 +519,47 @@
     }
 
     .group-chat-form textarea {
+        border-radius: 999px;
         max-height: 150px;
+        min-height: 46px;
+        padding-right: 3.1rem;
         resize: vertical;
+    }
+
+    .group-chat-send-button {
+        align-items: center;
+        background: var(--primary-soft);
+        border: 0;
+        border-radius: 50%;
+        bottom: 0.35rem;
+        color: var(--primary-contrast);
+        display: inline-flex;
+        height: 2.25rem;
+        justify-content: center;
+        padding: 0;
+        position: absolute;
+        right: 0.35rem;
+        transition: 0.15s ease;
+        width: 2.25rem;
+    }
+
+    .group-chat-send-button[hidden] {
+        display: none;
+    }
+
+    .group-chat-send-button:hover,
+    .group-chat-send-button:focus {
+        background: var(--primary-deep);
+    }
+
+    .group-chat-send-button svg {
+        fill: none;
+        height: 1.1rem;
+        stroke: currentColor;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 2;
+        width: 1.1rem;
     }
 
     .mobile-message-hit-area {
@@ -508,7 +577,7 @@
         }
 
         body:has(.group-chat-shell) .page-wrapper {
-            height: calc(100dvh - 4.75rem);
+            height: var(--chat-mobile-height, calc(100dvh - 4.75rem));
             max-width: none;
             padding: 0;
         }
@@ -552,13 +621,8 @@
 
         .group-chat-form {
             background: var(--card-bg);
-            grid-template-columns: 1fr;
             padding: 0.8rem;
             padding-bottom: max(0.8rem, env(safe-area-inset-bottom));
-        }
-
-        .group-chat-form .btn {
-            width: 100%;
         }
 
         .group-chat-form textarea {
@@ -573,6 +637,7 @@
     const messages = document.getElementById("group-chat-messages");
     const textInput = document.querySelector(".group-chat-form textarea");
     const sendForm = document.querySelector(".group-chat-form");
+    const sendButton = document.querySelector(".group-chat-send-button");
     const replyInput = document.querySelector(".group-chat-form input[name='reply_to']");
     const replyPreview = document.getElementById("reply-compose-preview");
     const replyAuthor = document.getElementById("reply-compose-author");
@@ -589,6 +654,7 @@
     const readersModalBody = document.getElementById("readers-modal-body");
     const onlinePill = document.getElementById("group-online-pill");
     const onlineCount = document.getElementById("group-online-count");
+    const memberTotal = document.getElementById("group-member-total");
     const updatesUrl = "{% url 'group_chat_updates' %}";
     let activeMessage = null;
     let activeDeleteUrl = "";
@@ -624,6 +690,26 @@
         messages.scrollTop = messages.scrollHeight;
     }
 
+    function updateMobileChatHeight() {
+        if (!window.visualViewport || window.innerWidth > 767) {
+            document.documentElement.style.removeProperty("--chat-mobile-height");
+            return;
+        }
+
+        const navbar = document.querySelector(".navbar");
+        const navbarHeight = navbar ? navbar.getBoundingClientRect().height : 0;
+        const availableHeight = Math.max(360, window.visualViewport.height - navbarHeight);
+        document.documentElement.style.setProperty("--chat-mobile-height", `${availableHeight}px`);
+    }
+
+    function updateSendButton() {
+        if (!textInput || !sendButton) {
+            return;
+        }
+
+        sendButton.hidden = textInput.value.trim().length === 0;
+    }
+
     function getMessageRow(messageId) {
         return document.querySelector(`[data-message-id="${messageId}"]`);
     }
@@ -655,6 +741,10 @@
     function updateOnline(payload) {
         if (onlineCount) {
             onlineCount.textContent = payload.online_count || 0;
+        }
+
+        if (memberTotal && "member_count" in payload) {
+            memberTotal.textContent = `${payload.member_count || 0} участников`;
         }
 
         if (onlinePill) {
@@ -881,6 +971,7 @@
             if (await submitAjaxForm(sendForm)) {
                 sendForm.reset();
                 clearReply();
+                updateSendButton();
                 messages.scrollTop = messages.scrollHeight;
             }
         });
@@ -906,6 +997,8 @@
 
     if (textInput) {
         bindEnterSubmit(textInput);
+        textInput.addEventListener("input", updateSendButton);
+        updateSendButton();
     }
 
     if (replyClear) {
@@ -940,6 +1033,13 @@
             }
         });
     }
+
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener("resize", updateMobileChatHeight);
+        window.visualViewport.addEventListener("scroll", updateMobileChatHeight);
+    }
+    window.addEventListener("resize", updateMobileChatHeight);
+    updateMobileChatHeight();
 
     window.setInterval(refreshChat, 5000);
 })();

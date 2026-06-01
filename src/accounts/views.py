@@ -334,6 +334,7 @@ def _get_group_chat_messages(study_group, user):
 def _group_chat_payload(request, study_group):
     members = _get_group_chat_members(study_group)
     online_member_ids = _get_online_member_ids(study_group)
+    visible_online_member_ids = online_member_ids - {request.user.id}
     chat_messages = _get_group_chat_messages(study_group, request.user)
     html = render_to_string(
         "accounts/_group_chat_messages.html",
@@ -346,7 +347,7 @@ def _group_chat_payload(request, study_group):
 
     return {
         "html": html,
-        "online_count": len(online_member_ids),
+        "online_count": len(visible_online_member_ids),
         "online_member_ids": list(online_member_ids),
         "member_count": members.count(),
     }
@@ -391,13 +392,15 @@ def group_chat_view(request):
 
     members = _get_group_chat_members(study_group)
     online_member_ids = _get_online_member_ids(study_group)
+    visible_online_member_ids = online_member_ids - {request.user.id}
     chat_messages = _get_group_chat_messages(study_group, request.user)
 
     return render(request, "accounts/group_chat.html", {
         "study_group": study_group,
         "members": members,
         "online_member_ids": online_member_ids,
-        "online_count": len(online_member_ids),
+        "online_count": len(visible_online_member_ids),
+        "member_count": members.count(),
         "chat_messages": chat_messages,
         "message_form": message_form,
     })

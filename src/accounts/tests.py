@@ -4,6 +4,7 @@ from django.contrib.admin.sites import AdminSite
 from django.contrib.auth.models import User
 from django.test import Client, RequestFactory, TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from .admin import UserAdmin, can_manage_admin_target
 from .models import GroupChatMessage, Profile
@@ -164,6 +165,31 @@ class StudyGroupChatTests(TestCase):
         self.assertIsNotNone(first.profile.study_group)
         self.assertEqual(first.profile.study_group, second.profile.study_group)
         self.assertEqual(first.profile.study_group.display_name, "ПМИб-231")
+
+    def test_group_chat_uses_first_name_and_last_initial_for_member_list(self):
+        user = self.create_student("first", "pmib-231_111111@volsu.ru")
+        user.profile.full_name = "Иван Попов Сергеевич"
+        user.profile.save(update_fields=["full_name"])
+
+        self.client.force_login(user)
+        response = self.client.get(reverse("group_chat"))
+
+        self.assertContains(response, "Иван П.")
+        self.assertEqual(user.profile.short_name, "Иван П.С.")
+
+    def test_group_chat_online_count_excludes_current_user(self):
+        user = self.create_student("first", "pmib-231_111111@volsu.ru")
+        user.profile.last_seen_at = timezone.now()
+        user.profile.save(update_fields=["last_seen_at"])
+        self.client.force_login(user)
+
+        response = self.client.get(
+            reverse("group_chat_updates"),
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.json()["online_count"], 0)
+        self.assertIn(user.id, response.json()["online_member_ids"])
 
     def test_group_chat_creates_message_for_current_student_group(self):
         user = self.create_student("first", "pmib-231_111111@volsu.ru")
