@@ -2,7 +2,9 @@ from unittest.mock import patch
 
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth.models import User
+from django.core import mail
 from django.test import Client, RequestFactory, TestCase
+from django.test.utils import override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -180,6 +182,58 @@ class ProfilePasswordChangeTests(TestCase):
         self.user.refresh_from_db()
         self.assertTrue(self.user.check_password("old-password"))
         self.assertContains(response, "Пароль должен быть длиннее 8 символов.")
+
+
+@override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+class LoginCodeTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username="student",
+            email="student@example.com",
+            password="correct-password",
+        )
+
+    def test_login_shows_register_prompt_for_unknown_email(self):
+        response = self.client.post("/login/", {
+            "username": "missing@example.com",
+            "password": "password",
+        })
+
+        self.assertContains(response, "Пользователь с такой почтой не зарегистрирован")
+        self.assertContains(response, "Зарегистрироваться")
+
+    def test_login_shows_email_code_prompt_for_wrong_password(self):
+        response = self.client.post("/login/", {
+            "username": self.user.email,
+            "password": "wrong-password",
+        })
+
+        self.assertContains(response, "Забыли пароль?")
+        self.assertContains(response, "войти по коду с почты")
+
+    def test_send_login_code_sends_six_digit_code(self):
+        response = self.client.post(reverse("send_login_code"), {"email": self.user.email})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(mail.outbox), 1)
+        code = self.client.session["login_email_code"]["code"]
+        self.assertEqual(len(code), 6)
+        self.assertTrue(code.isdigit())
+        self.assertIn(code, mail.outbox[0].body)
+
+    def test_verify_login_code_logs_user_in(self):
+        self.client.post(reverse("send_login_code"), {"email": self.user.email})
+        code = self.client.session["login_email_code"]["code"]
+
+        response = self.client.post(reverse("verify_login_code"), {
+            "email": self.user.email,
+            "code": code,
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["redirect_url"], "/")
+        self.assertEqual(int(self.client.session["_auth_user_id"]), self.user.id)
 
 
 class StudyGroupChatTests(TestCase):

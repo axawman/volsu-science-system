@@ -1,11 +1,23 @@
 from django import forms
+from django.contrib.auth import authenticate
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
+from django.core.exceptions import ValidationError
 from .models import GroupChatMessage, Profile
 
 
 class EmailOrUsernameAuthenticationForm(AuthenticationForm):
+    error_messages = {
+        **AuthenticationForm.error_messages,
+        "unknown_email": "Пользователь с такой почтой не зарегистрирован.",
+    }
+
+    def __init__(self, request=None, *args, **kwargs):
+        super().__init__(request, *args, **kwargs)
+        self.email_not_registered = False
+        self.password_invalid_for_registered_email = False
+
     username = forms.CharField(
         label="Email",
         widget=forms.TextInput(attrs={
@@ -24,14 +36,37 @@ class EmailOrUsernameAuthenticationForm(AuthenticationForm):
 
     def clean(self):
         login_value = self.cleaned_data.get("username", "").strip()
+        password = self.cleaned_data.get("password")
+        auth_username = login_value
 
         if "@" in login_value:
             user = User.objects.filter(email__iexact=login_value).first()
 
-            if user:
-                self.cleaned_data["username"] = user.get_username()
+            if not user:
+                self.email_not_registered = True
+                raise ValidationError(
+                    self.error_messages["unknown_email"],
+                    code="unknown_email",
+                )
 
-        return super().clean()
+            auth_username = user.get_username()
+            self.cleaned_data["username"] = auth_username
+
+        if login_value and password:
+            self.user_cache = authenticate(
+                self.request,
+                username=auth_username,
+                password=password,
+            )
+
+            if self.user_cache is None:
+                if "@" in login_value:
+                    self.password_invalid_for_registered_email = True
+                raise self.get_invalid_login_error()
+
+            self.confirm_login_allowed(self.user_cache)
+
+        return self.cleaned_data
 
 
 class RegisterForm(UserCreationForm):

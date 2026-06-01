@@ -13,7 +13,9 @@ from .views import (
     profile_view,
     public_profile_view,
     register_view,
+    send_login_code,
     send_registration_code,
+    verify_login_code,
     verify_registration_code,
 )
 
@@ -21,6 +23,8 @@ urlpatterns = [
     path("register/", register_view, name="register"),
     path("register/send-code/", send_registration_code, name="send_registration_code"),
     path("register/verify-code/", verify_registration_code, name="verify_registration_code"),
+    path("login/send-code/", send_login_code, name="send_login_code"),
+    path("login/verify-code/", verify_login_code, name="verify_login_code"),
     path("profile/", profile_view, name="profile"),
     path("profile/password/", change_profile_password_view, name="change_profile_password"),
     path("profile/edit/", edit_profile_view, name="edit_profile"),

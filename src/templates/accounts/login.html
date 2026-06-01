@@ -9,8 +9,9 @@
             <div class="card-body p-4">
                 <h1 class="h4 text-primary mb-4">Вход</h1>
 
-                <form method="post" class="login-form">
+                <form method="post" class="login-form" id="password-login-form">
                     {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ next }}">
 
                     <div class="mb-3">
                         <label class="form-label">Email</label>
@@ -22,7 +23,56 @@
                         {{ form.password }}
                     </div>
 
+                    {% if form.email_not_registered %}
+                        <div class="alert alert-warning">
+                            Пользователь с такой почтой не зарегистрирован.
+                            <div class="mt-2">
+                                <a href="/accounts/register/" class="btn btn-outline-primary btn-sm">
+                                    Зарегистрироваться
+                                </a>
+                            </div>
+                        </div>
+                    {% elif form.password_invalid_for_registered_email %}
+                        <div class="alert alert-warning">
+                            <span>Забыли пароль?</span>
+                            <button class="login-code-link"
+                                    type="button"
+                                    id="send-login-code-button">
+                                войти по коду с почты
+                            </button>
+                        </div>
+                    {% elif form.non_field_errors %}
+                        <div class="alert alert-warning">
+                            {{ form.non_field_errors|join:" " }}
+                        </div>
+                    {% endif %}
+
                     <button type="submit" class="btn btn-primary w-100">Войти</button>
+                </form>
+
+                <form class="login-code-form mt-3"
+                      id="login-code-form"
+                      data-send-url="{% url 'send_login_code' %}"
+                      data-verify-url="{% url 'verify_login_code' %}"
+                      hidden>
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ next }}">
+                    <div class="alert alert-info mb-3" id="login-code-status">
+                        Код отправлен на почту.
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="login-code-input">Код из письма</label>
+                        <input class="form-control"
+                               type="text"
+                               id="login-code-input"
+                               name="code"
+                               inputmode="numeric"
+                               maxlength="6"
+                               pattern="[0-9]{6}"
+                               autocomplete="one-time-code"
+                               placeholder="000000">
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Подтвердить</button>
                 </form>
 
                 <div class="text-center mt-3">
@@ -35,7 +85,8 @@
 
 <style>
     .login-form input[type="text"],
-    .login-form input[type="password"] {
+    .login-form input[type="password"],
+    .login-code-form input[type="text"] {
         background-color: var(--bs-body-bg);
         border: 1px solid var(--bs-border-color);
         border-radius: 0.375rem;
@@ -48,10 +99,100 @@
     }
 
     .login-form input[type="text"]:focus,
-    .login-form input[type="password"]:focus {
+    .login-form input[type="password"]:focus,
+    .login-code-form input[type="text"]:focus {
         border-color: var(--primary-soft);
         box-shadow: 0 0 0 0.2rem rgba(47, 111, 237, 0.18);
         outline: 0;
     }
+
+    .login-code-link {
+        background: none;
+        border: 0;
+        color: var(--primary-deep);
+        font-weight: 700;
+        padding: 0;
+        text-decoration: underline;
+    }
 </style>
+
+<script>
+(() => {
+    const sendButton = document.getElementById("send-login-code-button");
+    const passwordForm = document.getElementById("password-login-form");
+    const codeForm = document.getElementById("login-code-form");
+    const codeInput = document.getElementById("login-code-input");
+    const status = document.getElementById("login-code-status");
+
+    if (!sendButton || !passwordForm || !codeForm || !status) {
+        return;
+    }
+
+    function getEmail() {
+        const emailInput = passwordForm.querySelector("input[name='username']");
+        return emailInput ? emailInput.value.trim() : "";
+    }
+
+    function getCsrfToken() {
+        const csrfInput = passwordForm.querySelector("input[name='csrfmiddlewaretoken']");
+        return csrfInput ? csrfInput.value : "";
+    }
+
+    function setStatus(message, isError = false) {
+        status.textContent = message;
+        status.classList.toggle("alert-info", !isError);
+        status.classList.toggle("alert-warning", isError);
+    }
+
+    sendButton.addEventListener("click", async () => {
+        const formData = new FormData();
+        formData.append("email", getEmail());
+        formData.append("csrfmiddlewaretoken", getCsrfToken());
+
+        sendButton.disabled = true;
+        const response = await fetch(codeForm.dataset.sendUrl, {
+            method: "POST",
+            body: formData,
+            headers: {
+                "X-Requested-With": "XMLHttpRequest",
+            },
+        });
+        const payload = await response.json();
+        sendButton.disabled = false;
+
+        if (!response.ok) {
+            codeForm.hidden = false;
+            setStatus(payload.error || "Не удалось отправить код.", true);
+            return;
+        }
+
+        codeForm.hidden = false;
+        setStatus(payload.message || "Код отправлен на почту.");
+        codeInput.focus();
+    });
+
+    codeForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const formData = new FormData(codeForm);
+        formData.append("email", getEmail());
+
+        const response = await fetch(codeForm.dataset.verifyUrl, {
+            method: "POST",
+            body: formData,
+            headers: {
+                "X-Requested-With": "XMLHttpRequest",
+            },
+        });
+        const payload = await response.json();
+
+        if (!response.ok) {
+            setStatus(payload.error || "Не удалось подтвердить код.", true);
+            return;
+        }
+
+        window.location.href = payload.redirect_url || "/";
+    });
+})();
+</script>
 {% endblock %}

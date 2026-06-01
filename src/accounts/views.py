@@ -24,6 +24,7 @@ from django.http import FileResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from .decorators import admin_required
@@ -40,6 +41,8 @@ REGISTRATION_CODE_SESSION_KEY = "registration_email_code"
 REGISTRATION_CODE_COOLDOWNS_SESSION_KEY = "registration_email_code_cooldowns"
 REGISTRATION_CODE_TTL_MINUTES = 5
 REGISTRATION_CODE_RESEND_COOLDOWN_SECONDS = 60
+LOGIN_CODE_SESSION_KEY = "login_email_code"
+LOGIN_CODE_TTL_MINUTES = 5
 GROUP_CHAT_ONLINE_WINDOW_SECONDS = 120
 
 EXCLUDED_DUMPDATA_MODELS = [
@@ -172,6 +175,76 @@ def verify_registration_code(request):
     request.session["registration_email_verified"] = email
     request.session.modified = True
     return JsonResponse({"message": "Почта подтверждена."})
+
+
+def _get_safe_login_redirect(request):
+    redirect_to = request.POST.get("next") or request.GET.get("next") or settings.LOGIN_REDIRECT_URL
+    if url_has_allowed_host_and_scheme(
+        redirect_to,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return redirect_to
+    return settings.LOGIN_REDIRECT_URL
+
+
+@require_POST
+def send_login_code(request):
+    email = _normalize_email(request.POST.get("email"))
+    user = User.objects.filter(email__iexact=email, is_active=True).first()
+
+    if not user:
+        return JsonResponse({"error": "Пользователь с такой почтой не зарегистрирован."}, status=404)
+
+    code = f"{secrets.randbelow(1000000):06d}"
+    expires_at = timezone.now() + timedelta(minutes=LOGIN_CODE_TTL_MINUTES)
+
+    try:
+        send_mail(
+            subject="Код входа ScienceHub ВолГУ",
+            message=f"Ваш код входа: {code}\n\nКод действует {LOGIN_CODE_TTL_MINUTES} минут.",
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[email],
+            fail_silently=False,
+        )
+    except (BadHeaderError, OSError, smtplib.SMTPException, TimeoutError) as error:
+        return JsonResponse({"error": f"Не удалось отправить код: {error}"}, status=502)
+
+    request.session[LOGIN_CODE_SESSION_KEY] = {
+        "email": email,
+        "user_id": user.id,
+        "code": code,
+        "expires_at": expires_at.isoformat(),
+    }
+    request.session.modified = True
+    return JsonResponse({"message": "Код отправлен на почту."})
+
+
+@require_POST
+def verify_login_code(request):
+    email = _normalize_email(request.POST.get("email"))
+    code = (request.POST.get("code") or "").strip()
+    verification = request.session.get(LOGIN_CODE_SESSION_KEY) or {}
+    expires_at = verification.get("expires_at")
+
+    if expires_at:
+        expires_at = datetime.fromisoformat(expires_at)
+        if timezone.is_naive(expires_at):
+            expires_at = timezone.make_aware(expires_at)
+
+    if (
+        not expires_at
+        or expires_at < timezone.now()
+        or verification.get("email") != email
+        or verification.get("code") != code
+    ):
+        return JsonResponse({"error": "Неверный или устаревший код."}, status=400)
+
+    user = get_object_or_404(User, id=verification.get("user_id"), is_active=True)
+    login(request, user)
+    request.session.pop(LOGIN_CODE_SESSION_KEY, None)
+    request.session.modified = True
+    return JsonResponse({"redirect_url": _get_safe_login_redirect(request)})
 
 
 def register_view(request):
