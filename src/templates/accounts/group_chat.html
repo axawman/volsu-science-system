@@ -157,10 +157,26 @@
 
 <style>
     .group-chat-shell {
-        height: calc(100vh - 150px);
+        height: 100%;
         margin: 0 auto;
         max-width: 920px;
-        min-height: 620px;
+        min-height: 0;
+    }
+
+    body:has(.group-chat-shell) {
+        overflow: hidden;
+    }
+
+    body:has(.group-chat-shell) .page-wrapper {
+        height: var(--chat-page-height, calc(100dvh - 5rem));
+        min-height: 0;
+        overflow: hidden;
+        padding-bottom: 1rem;
+        padding-top: 1rem;
+    }
+
+    body:has(.group-chat-shell) .site-disclaimer {
+        display: none;
     }
 
     .group-chat-card {
@@ -592,15 +608,11 @@
 
     @media (max-width: 767px) {
         body:has(.group-chat-shell) {
-            overflow: hidden;
             overflow-x: hidden;
         }
 
         body:has(.group-chat-shell) .page-wrapper {
-            height: var(--chat-mobile-height, calc(100dvh - 4.75rem));
             max-width: none;
-            min-height: 0;
-            overflow: hidden;
             padding: 0;
             width: 100%;
         }
@@ -742,17 +754,12 @@
         messages.scrollTop = messages.scrollHeight;
     }
 
-    function updateMobileChatHeight() {
-        if (!window.visualViewport || window.innerWidth > 767) {
-            document.documentElement.style.removeProperty("--chat-mobile-height");
-            document.documentElement.style.removeProperty("--group-chat-header-height");
-            return;
-        }
-
+    function updateChatViewport() {
+        const viewportHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
         const navbar = document.querySelector(".navbar");
         const navbarHeight = navbar ? navbar.getBoundingClientRect().height : 0;
-        const availableHeight = Math.max(220, window.visualViewport.height - navbarHeight);
-        document.documentElement.style.setProperty("--chat-mobile-height", `${availableHeight}px`);
+        const availableHeight = Math.max(220, viewportHeight - navbarHeight);
+        document.documentElement.style.setProperty("--chat-page-height", `${availableHeight}px`);
 
         if (chatHeader) {
             document.documentElement.style.setProperty(
@@ -1039,8 +1046,7 @@
 
     if (deleteMeButton) {
         deleteMeButton.addEventListener("click", async () => {
-            if (window.confirm("Удалить сообщение у вас?")) {
-                await submitDelete("me");
+            if (await submitDelete("me")) {
                 getDeleteChoiceModal().hide();
             }
         });
@@ -1048,8 +1054,7 @@
 
     if (deleteAllButton) {
         deleteAllButton.addEventListener("click", async () => {
-            if (window.confirm("Удалить сообщение у всех?")) {
-                await submitDelete("all");
+            if (await submitDelete("all")) {
                 getDeleteChoiceModal().hide();
             }
         });
@@ -1095,11 +1100,11 @@
     }
 
     if (window.visualViewport) {
-        window.visualViewport.addEventListener("resize", updateMobileChatHeight);
-        window.visualViewport.addEventListener("scroll", updateMobileChatHeight);
+        window.visualViewport.addEventListener("resize", updateChatViewport);
+        window.visualViewport.addEventListener("scroll", updateChatViewport);
     }
-    window.addEventListener("resize", updateMobileChatHeight);
-    updateMobileChatHeight();
+    window.addEventListener("resize", updateChatViewport);
+    updateChatViewport();
 
     window.setInterval(refreshChat, 5000);
 })();
