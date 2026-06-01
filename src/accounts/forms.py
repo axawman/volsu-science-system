@@ -80,6 +80,41 @@ class ProfileEditForm(forms.ModelForm):
         }
 
 
+class ProfilePasswordForm(forms.Form):
+    password = forms.CharField(
+        label="Введите пароль",
+        min_length=9,
+        widget=forms.PasswordInput(attrs={
+            "class": "form-control",
+            "autocomplete": "new-password",
+        }),
+        error_messages={
+            "min_length": "Пароль должен быть длиннее 8 символов.",
+            "required": "Введите пароль.",
+        },
+    )
+    password_repeat = forms.CharField(
+        label="Повторите пароль",
+        widget=forms.PasswordInput(attrs={
+            "class": "form-control",
+            "autocomplete": "new-password",
+        }),
+        error_messages={
+            "required": "Повторите пароль.",
+        },
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        password = cleaned_data.get("password")
+        password_repeat = cleaned_data.get("password_repeat")
+
+        if password and password_repeat and password != password_repeat:
+            self.add_error("password_repeat", "Пароли не совпадают.")
+
+        return cleaned_data
+
+
 class DataImportForm(forms.Form):
     archive = forms.FileField(
         label="Архив с данными",

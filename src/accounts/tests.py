@@ -133,6 +133,55 @@ class StudentRecordBookNumberTests(TestCase):
         self.assertEqual(self.admin.get_record_book_number(user), "-")
 
 
+class ProfilePasswordChangeTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username="student",
+            email="student@example.com",
+            password="old-password",
+        )
+
+    def test_user_can_change_own_password(self):
+        self.client.force_login(self.user)
+
+        response = self.client.post(reverse("change_profile_password"), {
+            "password": "new-password",
+            "password_repeat": "new-password",
+        })
+
+        self.assertRedirects(response, reverse("profile"))
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("new-password"))
+        self.assertEqual(int(self.client.session["_auth_user_id"]), self.user.id)
+
+    def test_password_change_rejects_mismatch(self):
+        self.client.force_login(self.user)
+
+        response = self.client.post(reverse("change_profile_password"), {
+            "password": "new-password",
+            "password_repeat": "other-password",
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("old-password"))
+        self.assertContains(response, "Пароли не совпадают.")
+
+    def test_password_change_rejects_short_password(self):
+        self.client.force_login(self.user)
+
+        response = self.client.post(reverse("change_profile_password"), {
+            "password": "12345678",
+            "password_repeat": "12345678",
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("old-password"))
+        self.assertContains(response, "Пароль должен быть длиннее 8 символов.")
+
+
 class StudyGroupChatTests(TestCase):
     def setUp(self):
         self.client = Client()

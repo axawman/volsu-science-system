@@ -1,6 +1,7 @@
 from django.urls import path
 from .views import (
     data_transfer_view,
+    change_profile_password_view,
     delete_group_chat_message_view,
     edit_profile_view,
     edit_group_chat_message_view,
@@ -21,6 +22,7 @@ urlpatterns = [
     path("register/send-code/", send_registration_code, name="send_registration_code"),
     path("register/verify-code/", verify_registration_code, name="verify_registration_code"),
     path("profile/", profile_view, name="profile"),
+    path("profile/password/", change_profile_password_view, name="change_profile_password"),
     path("profile/edit/", edit_profile_view, name="edit_profile"),
     path("group-chat/", group_chat_view, name="group_chat"),
     path("group-chat/updates/", group_chat_updates_view, name="group_chat_updates"),

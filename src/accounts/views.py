@@ -12,7 +12,7 @@ from pathlib import Path
 from django.apps import apps
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth import login, logout
+from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.core.mail import BadHeaderError, send_mail
@@ -27,7 +27,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from .decorators import admin_required
-from .forms import DataImportForm, GroupChatMessageForm, ProfileEditForm, RegisterForm
+from .forms import DataImportForm, GroupChatMessageForm, ProfileEditForm, ProfilePasswordForm, RegisterForm
 from .models import GroupChatMessage, Profile
 from .services import assign_study_group_from_email
 from .signals import create_user_profile, save_user_profile
@@ -219,6 +219,8 @@ def profile_view(request):
         "profile_user": request.user,
         "works": works,
         "is_own_profile": True,
+        "password_form": ProfilePasswordForm(),
+        "show_password_form": False,
     })
 
 
@@ -240,6 +242,32 @@ def public_profile_view(request, username):
         "profile_user": profile_user,
         "works": works,
         "is_own_profile": request.user.is_authenticated and request.user == profile_user,
+        "password_form": ProfilePasswordForm(),
+        "show_password_form": False,
+    })
+
+
+@login_required
+@require_POST
+def change_profile_password_view(request):
+    from works.models import Work
+
+    form = ProfilePasswordForm(request.POST)
+    if form.is_valid():
+        request.user.set_password(form.cleaned_data["password"])
+        request.user.save(update_fields=["password"])
+        update_session_auth_hash(request, request.user)
+        messages.success(request, "Пароль обновлен.")
+        return redirect("/accounts/profile/")
+
+    works = Work.objects.filter(author=request.user).select_related("section").order_by("-updated_at")
+    return render(request, "accounts/profile.html", {
+        "profile": request.user.profile,
+        "profile_user": request.user,
+        "works": works,
+        "is_own_profile": True,
+        "password_form": form,
+        "show_password_form": True,
     })
 
 

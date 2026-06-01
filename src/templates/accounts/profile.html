@@ -39,6 +39,14 @@
             <div class="d-flex flex-wrap gap-2 mt-4">
                 {% if is_own_profile %}
                     <a href="/accounts/profile/edit/" class="btn btn-primary">Редактировать профиль</a>
+                    <button type="button"
+                            class="btn btn-outline-primary"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#passwordChangeForm"
+                            aria-expanded="{% if show_password_form %}true{% else %}false{% endif %}"
+                            aria-controls="passwordChangeForm">
+                        Сменить пароль
+                    </button>
                 {% endif %}
                 <button type="button"
                         class="btn btn-outline-primary"
@@ -59,6 +67,38 @@
                     </form>
                 {% endif %}
             </div>
+
+            {% if is_own_profile %}
+                <div class="collapse {% if show_password_form %}show{% endif %}" id="passwordChangeForm">
+                    <form method="post"
+                          action="{% url 'change_profile_password' %}"
+                          class="profile-password-form mt-4"
+                          novalidate>
+                        {% csrf_token %}
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label" for="{{ password_form.password.id_for_label }}">
+                                    {{ password_form.password.label }}
+                                </label>
+                                {{ password_form.password }}
+                                {% for error in password_form.password.errors %}
+                                    <div class="invalid-feedback d-block">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" for="{{ password_form.password_repeat.id_for_label }}">
+                                    {{ password_form.password_repeat.label }}
+                                </label>
+                                {{ password_form.password_repeat }}
+                                {% for error in password_form.password_repeat.errors %}
+                                    <div class="invalid-feedback d-block">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary mt-3">Применить пароль</button>
+                    </form>
+                </div>
+            {% endif %}
         </div>
     </section>
 
@@ -115,7 +155,11 @@
     </section>
 </div>
 
-<div class="modal fade" id="messagesSoonModal" tabindex="-1" aria-labelledby="messagesSoonModalLabel" aria-hidden="true">
+<div class="modal fade"
+     id="messagesSoonModal"
+     tabindex="-1"
+     aria-labelledby="messagesSoonModalLabel"
+     aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
@@ -173,6 +217,13 @@
         color: var(--text-main);
         padding: 0.9rem 1rem;
         white-space: pre-wrap;
+    }
+
+    .profile-password-form {
+        background: var(--surface-muted);
+        border: 1px solid var(--border-soft);
+        border-radius: 0.5rem;
+        padding: 1rem;
     }
 
     .profile-work-item {
