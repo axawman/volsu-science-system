@@ -209,7 +209,7 @@ class LoginCodeTests(TestCase):
             "password": "wrong-password",
         })
 
-        self.assertContains(response, "Забыли пароль?")
+        self.assertContains(response, "Неправильный пароль! Забыли?")
         self.assertContains(response, "войти по коду с почты")
 
     def test_send_login_code_sends_six_digit_code(self):
