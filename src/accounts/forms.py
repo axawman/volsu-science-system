@@ -94,7 +94,7 @@ class GroupChatMessageForm(forms.ModelForm):
         widgets = {
             "text": forms.Textarea(attrs={
                 "class": "form-control",
-                "rows": 2,
+                "rows": 1,
                 "maxlength": 2000,
                 "placeholder": "Написать сообщение",
             }),
