@@ -503,17 +503,36 @@
     }
 
     @media (max-width: 767px) {
+        body:has(.group-chat-shell) {
+            overflow: hidden;
+        }
+
+        body:has(.group-chat-shell) .page-wrapper {
+            height: calc(100dvh - 4.75rem);
+            max-width: none;
+            padding: 0;
+        }
+
         .group-chat-shell {
-            height: calc(100dvh - 96px);
+            height: 100%;
             margin-left: -0.75rem;
             margin-right: -0.75rem;
-            min-height: 520px;
+            min-height: 0;
         }
 
         .group-chat-card {
             border-left: 0;
             border-radius: 0;
             border-right: 0;
+        }
+
+        .group-members-panel {
+            max-height: 34dvh;
+            overflow-y: auto;
+        }
+
+        .group-chat-messages {
+            padding: 0.9rem 0.8rem;
         }
 
         .group-message {
@@ -532,11 +551,19 @@
         }
 
         .group-chat-form {
+            background: var(--card-bg);
             grid-template-columns: 1fr;
+            padding: 0.8rem;
+            padding-bottom: max(0.8rem, env(safe-area-inset-bottom));
         }
 
         .group-chat-form .btn {
             width: 100%;
+        }
+
+        .group-chat-form textarea {
+            max-height: 96px;
+            min-height: 44px;
         }
     }
 </style>
