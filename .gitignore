@@ -28,3 +28,11 @@ Thumbs.db
 
 # Docker
 postgres_data/
+
+# Editor backups
+*~
+
+# Local docs / artifacts (not part of the app)
+Documents/
+*.docx
+скриншот.png

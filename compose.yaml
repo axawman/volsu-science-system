@@ -9,20 +9,25 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    expose:
+      - "5432"
 
   web:
     build: .
     container_name: science_registry_web
     restart: unless-stopped
-    command: sh -c "cd /app/src && python manage.py migrate && python manage.py initadmin && python manage.py runserver 0.0.0.0:8000"
+    command: >
+      sh -c "cd /app/src &&
+      python manage.py migrate &&
+      python manage.py initadmin &&
+      python manage.py collectstatic --noinput &&
+      gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 60 --access-logfile - --error-logfile -"
     volumes:
       - .:/app
     env_file:
       - .env
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     depends_on:
       - db
 
