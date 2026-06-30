@@ -189,11 +189,16 @@
         }
     }
 
-    /* ---- full-height layout chain (no JS needed) ---- */
+    /* ---- full-height layout chain; height tracks the visual viewport
+           so the composer stays above the on-screen keyboard ---- */
+    html:has(.group-chat-shell) {
+        overflow: hidden;
+    }
+
     body:has(.group-chat-shell) {
         display: flex;
         flex-direction: column;
-        height: 100dvh;
+        height: var(--chat-vh, 100dvh);
         overflow: hidden;
     }
 
@@ -815,16 +820,20 @@
 
     function updateChatViewport() {
         const viewportHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-        const navbar = document.querySelector(".navbar");
-        const navbarHeight = navbar ? navbar.getBoundingClientRect().height : 0;
-        const availableHeight = Math.max(220, viewportHeight - navbarHeight);
-        document.documentElement.style.setProperty("--chat-page-height", `${availableHeight}px`);
+        document.documentElement.style.setProperty("--chat-vh", `${viewportHeight}px`);
 
         if (chatHeader) {
             document.documentElement.style.setProperty(
                 "--group-chat-header-height",
                 `${chatHeader.getBoundingClientRect().height}px`,
             );
+        }
+
+        if (messages) {
+            const nearBottom = messages.scrollHeight - messages.scrollTop - messages.clientHeight < 160;
+            if (nearBottom) {
+                messages.scrollTop = messages.scrollHeight;
+            }
         }
     }
 
