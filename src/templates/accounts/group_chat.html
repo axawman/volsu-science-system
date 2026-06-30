@@ -156,12 +156,17 @@
 </div>
 
 <style>
+    /* ============ Telegram-style group chat ============ */
+
     .group-chat-shell {
-        --tg-wallpaper: linear-gradient(180deg, #e9eef5 0%, #dfe7f1 100%);
-        --tg-bubble-in: var(--card-bg);
-        --tg-bubble-out: #e7f1fd;
-        --tg-bubble-text: var(--text-main);
-        --tg-name: var(--primary-soft);
+        --tg-wallpaper: linear-gradient(180deg, #dfe7f2 0%, #d6e0ee 100%);
+        --tg-panel: var(--card-bg);
+        --tg-bubble-in: #ffffff;
+        --tg-bubble-out: #d7eefb;
+        --tg-bubble-text: #1f2733;
+        --tg-name: #1565c0;
+        --tg-input-bg: #ffffff;
+        --tg-divider: rgba(0, 0, 0, 0.08);
         display: flex;
         flex: 1 1 auto;
         flex-direction: column;
@@ -173,14 +178,18 @@
 
     @media (prefers-color-scheme: dark) {
         .group-chat-shell {
-            --tg-wallpaper: #0c0c0c;
-            --tg-bubble-in: #1e1e1e;
-            --tg-bubble-out: #2b2b2b;
-            --tg-bubble-text: var(--text-main);
-            --tg-name: #d6d6d6;
+            --tg-wallpaper: #0d0d0d;
+            --tg-panel: #1c1c1c;
+            --tg-bubble-in: #232323;
+            --tg-bubble-out: #2f2f2f;
+            --tg-bubble-text: #e8e8e8;
+            --tg-name: #cfcfcf;
+            --tg-input-bg: #2a2a2a;
+            --tg-divider: rgba(255, 255, 255, 0.08);
         }
     }
 
+    /* ---- full-height layout chain (no JS needed) ---- */
     body:has(.group-chat-shell) {
         display: flex;
         flex-direction: column;
@@ -198,18 +207,22 @@
         flex-direction: column;
         min-height: 0;
         overflow: hidden;
-        padding-bottom: 1rem;
-        padding-top: 1rem;
+        padding: 0.75rem 0;
     }
 
     body:has(.group-chat-shell) .site-disclaimer {
         display: none;
     }
 
+    /* ---- card ---- */
     .group-chat-card {
-        display: grid;
+        background: var(--tg-panel);
+        border: 1px solid var(--border-soft);
+        border-radius: 0.75rem;
+        box-shadow: var(--shadow-soft);
+        display: flex;
         flex: 1 1 auto;
-        grid-template-rows: auto auto minmax(0, 1fr) auto;
+        flex-direction: column;
         min-height: 0;
         overflow: hidden;
         position: relative;
@@ -220,59 +233,63 @@
         transform: none;
     }
 
+    /* ---- header ---- */
     .group-chat-header {
         align-items: center;
-        border-bottom: 1px solid var(--border-soft);
+        background: var(--tg-panel);
+        border-bottom: 1px solid var(--tg-divider);
         display: flex;
+        flex: 0 0 auto;
+        gap: 0.75rem;
         justify-content: space-between;
-        padding: 1rem 1.25rem;
+        padding: 0.7rem 1rem;
+        z-index: 2;
     }
 
     .group-chat-heading {
         display: grid;
-        gap: 0.1rem;
+        gap: 0.05rem;
         min-width: 0;
     }
 
     .group-chat-title {
         background: none;
         border: 0;
-        color: var(--primary-soft);
-        font-size: 1.2rem;
-        font-weight: 700;
+        color: var(--text-main);
+        font-size: 1.05rem;
+        font-weight: 600;
+        overflow: hidden;
         padding: 0;
         text-align: left;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
     .group-member-total {
         color: var(--text-muted);
         font-size: 0.78rem;
-        font-weight: 700;
     }
 
     .group-online-pill {
         align-items: center;
-        border: 1px solid var(--border-soft);
-        border-radius: 999px;
         color: var(--text-muted);
         display: inline-flex;
-        font-size: 0.82rem;
-        font-weight: 700;
-        gap: 0.4rem;
-        padding: 0.28rem 0.65rem;
+        flex: 0 0 auto;
+        font-size: 0.8rem;
+        gap: 0.35rem;
     }
 
     .group-online-dot,
     .member-online-dot {
         border-radius: 50%;
         display: inline-block;
-        height: 0.55rem;
-        width: 0.55rem;
+        height: 0.5rem;
+        width: 0.5rem;
     }
 
     .group-online-pill.is-online .group-online-dot,
     .member-online-dot.is-online {
-        background: #16a34a;
+        background: #4caf50;
     }
 
     .group-online-pill.is-offline .group-online-dot {
@@ -284,14 +301,19 @@
         margin-left: auto;
     }
 
+    /* ---- members panel (collapsible) ---- */
     .group-members-panel {
-        border-bottom: 1px solid var(--border-soft);
-        padding: 1rem 1.25rem;
+        background: var(--tg-panel);
+        border-bottom: 1px solid var(--tg-divider);
+        flex: 0 0 auto;
+        max-height: 40dvh;
+        overflow-y: auto;
+        padding: 0.85rem 1rem;
     }
 
     .group-members-grid {
         display: grid;
-        gap: 0.75rem;
+        gap: 0.6rem;
         grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
     }
 
@@ -299,13 +321,13 @@
         align-items: center;
         color: var(--text-main);
         display: flex;
-        gap: 0.65rem;
+        gap: 0.6rem;
         min-width: 0;
         text-decoration: none;
     }
 
     .group-member:hover {
-        color: var(--primary-soft);
+        color: var(--tg-name);
     }
 
     .group-member-avatar,
@@ -324,41 +346,50 @@
     .group-message-avatar-placeholder {
         align-items: center;
         background: var(--surface-hover);
-        color: var(--primary-deep);
+        color: var(--text-muted);
         display: inline-flex;
-        font-weight: 700;
+        font-weight: 600;
         justify-content: center;
     }
 
     .group-member-name {
-        font-weight: 600;
+        font-weight: 500;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
 
+    /* ---- messages area (the only scroller) ---- */
     .group-chat-messages {
         background: var(--tg-wallpaper);
-        background-attachment: local;
         display: flex;
+        flex: 1 1 auto;
         flex-direction: column;
-        gap: 0.35rem;
+        gap: 0.15rem;
         min-height: 0;
         overflow-y: auto;
-        padding: 1.1rem 1.25rem 1.25rem;
+        padding: 1rem 1.1rem;
         scroll-behavior: smooth;
     }
 
+    .group-chat-empty {
+        color: var(--text-muted);
+        margin: auto;
+        text-align: center;
+    }
+
+    /* ---- message rows ---- */
     .group-message {
         align-items: flex-end;
         display: flex;
         gap: 0.5rem;
-        max-width: min(72%, 600px);
+        margin-top: 0.5rem;
+        max-width: min(72%, 560px);
         position: relative;
     }
 
     .group-message.is-grouped {
-        margin-top: -0.2rem;
+        margin-top: 0.1rem;
     }
 
     .group-message.is-own {
@@ -366,6 +397,7 @@
         flex-direction: row-reverse;
     }
 
+    /* Telegram hides your own avatar */
     .group-message.is-own .group-message-avatar-link,
     .group-message.is-own .group-message-avatar-spacer {
         display: none;
@@ -378,19 +410,21 @@
 
     .group-message-avatar-link,
     .group-message-avatar-spacer {
+        align-self: flex-end;
         display: inline-flex;
         flex: 0 0 34px;
         width: 34px;
     }
 
+    /* ---- bubble ---- */
     .group-message-bubble {
         background: var(--tg-bubble-in);
-        border: 0;
-        border-radius: 14px 14px 14px 4px;
-        box-shadow: 0 1px 1px rgba(0, 0, 0, 0.12);
+        border-radius: 12px 12px 12px 4px;
+        box-shadow: 0 1px 1.5px rgba(0, 0, 0, 0.12);
         color: var(--tg-bubble-text);
-        min-width: 64px;
-        padding: 0.4rem 0.65rem 0.45rem;
+        max-width: 100%;
+        min-width: 56px;
+        padding: 0.4rem 0.6rem 0.45rem;
         position: relative;
     }
 
@@ -400,25 +434,25 @@
 
     .group-message.is-own .group-message-bubble {
         background: var(--tg-bubble-out);
-        border-radius: 14px 14px 4px 14px;
+        border-radius: 12px 12px 4px 12px;
     }
 
     .group-message.is-own.is-grouped .group-message-bubble {
-        border-top-left-radius: 14px;
+        border-top-left-radius: 12px;
         border-top-right-radius: 6px;
     }
 
+    .group-message.is-highlighted .group-message-bubble {
+        box-shadow: 0 0 0 2px var(--primary-soft);
+    }
+
+    /* ---- meta (author + time) ---- */
     .group-message-meta {
         align-items: baseline;
         display: flex;
         flex-wrap: wrap;
-        gap: 0.45rem;
-        margin-bottom: 0.25rem;
-    }
-
-    .group-message-meta.is-compact {
-        justify-content: flex-end;
-        margin-bottom: 0.15rem;
+        gap: 0.4rem;
+        margin-bottom: 0.1rem;
     }
 
     .group-message-meta a {
@@ -436,43 +470,55 @@
         justify-content: flex-end;
     }
 
-    .group-message-meta time {
-        color: var(--text-muted);
-        font-size: 0.76rem;
-    }
-
+    .group-message-meta time,
     .group-message-edited {
         color: var(--text-muted);
-        font-size: 0.76rem;
+        font-size: 0.72rem;
     }
 
+    .group-message-meta.is-compact {
+        justify-content: flex-end;
+        margin-bottom: 0.1rem;
+    }
+
+    /* ---- reply preview (in bubble + in composer) ---- */
     .group-message-reply-preview,
     .reply-compose-preview {
-        background: var(--surface-muted);
-        border-left: 3px solid var(--primary-soft);
-        border-radius: 0.45rem;
+        background: rgba(0, 0, 0, 0.04);
+        border-left: 3px solid var(--tg-name);
+        border-radius: 4px;
         color: var(--text-main);
         display: grid;
-        gap: 0.1rem;
-        margin-bottom: 0.5rem;
-        padding: 0.45rem 0.55rem;
+        gap: 0.05rem;
+        margin-bottom: 0.35rem;
+        padding: 0.3rem 0.5rem;
         text-decoration: none;
+    }
+
+    @media (prefers-color-scheme: dark) {
+        .group-message-reply-preview,
+        .reply-compose-preview {
+            background: rgba(255, 255, 255, 0.06);
+        }
     }
 
     .group-message-reply-preview span,
     .reply-compose-preview strong {
-        color: var(--primary-soft);
+        color: var(--tg-name);
         font-size: 0.78rem;
+        font-weight: 600;
     }
 
     .group-message-reply-preview small,
     .reply-compose-preview span {
         color: var(--text-muted);
+        font-size: 0.78rem;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
 
+    /* ---- text ---- */
     .group-message-text {
         font-size: 0.95rem;
         line-height: 1.4;
@@ -485,11 +531,19 @@
         font-style: italic;
     }
 
+    /* ---- footer / hover actions / read ticks ---- */
+    .group-message-footer {
+        align-items: flex-end;
+        display: flex;
+        gap: 0.6rem;
+        justify-content: space-between;
+        margin-top: 0.1rem;
+    }
+
     .group-message-actions {
         display: flex;
         flex-wrap: wrap;
-        gap: 0.65rem;
-        margin-top: 0.45rem;
+        gap: 0.6rem;
         opacity: 0;
         pointer-events: none;
         transition: opacity 0.15s ease;
@@ -508,8 +562,8 @@
     .group-message-action {
         background: none;
         border: 0;
-        color: var(--primary-soft);
-        font-size: 0.78rem;
+        color: var(--tg-name);
+        font-size: 0.74rem;
         font-weight: 600;
         padding: 0;
     }
@@ -520,13 +574,25 @@
     }
 
     .group-message-action.danger {
-        color: #c2410c;
+        color: #e53935;
     }
 
+    .group-message-read-state {
+        background: none;
+        border: 0;
+        color: var(--tg-name);
+        flex: 0 0 auto;
+        font-size: 0.78rem;
+        font-weight: 700;
+        line-height: 1;
+        margin-left: auto;
+    }
+
+    /* ---- inline edit form ---- */
     .group-message-edit-form {
         display: grid;
-        gap: 0.55rem;
-        margin-top: 0.55rem;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
     }
 
     .group-message-edit-actions {
@@ -535,57 +601,28 @@
         justify-content: flex-end;
     }
 
-    .group-message-footer {
-        align-items: flex-end;
-        display: flex;
-        gap: 0.75rem;
-        justify-content: space-between;
-    }
-
-    .group-message-read-state {
-        background: none;
-        border: 0;
-        color: var(--primary-soft);
-        flex: 0 0 auto;
-        font-size: 0.8rem;
-        font-weight: 700;
-        line-height: 1;
-        margin-top: 0.45rem;
-    }
-
-    .group-chat-empty {
-        align-self: center;
-        color: var(--text-muted);
-        margin: auto;
-        text-align: center;
-    }
-
+    /* ---- composer (always visible) ---- */
     .group-chat-form {
-        align-items: flex-end;
-        border-top: 1px solid var(--border-soft);
-        background: var(--card-bg);
-        display: grid;
-        gap: 0.75rem;
-        grid-template-columns: 1fr;
-        min-height: 0;
-        padding: 1rem 1.25rem;
+        align-items: stretch;
+        background: var(--tg-panel);
+        border-top: 1px solid var(--tg-divider);
+        display: flex;
+        flex: 0 0 auto;
+        flex-direction: column;
+        gap: 0.5rem;
+        padding: 0.6rem 0.9rem;
         position: relative;
         z-index: 3;
     }
 
-    .group-chat-input-shell {
-        min-width: 0;
-        position: relative;
-        width: 100%;
-    }
-
     .reply-compose-preview {
         align-items: center;
-        grid-column: 1 / -1;
         grid-template-columns: 1fr auto;
         margin: 0;
-        max-height: 4.5rem;
-        overflow: hidden;
+    }
+
+    .reply-compose-preview[hidden] {
+        display: none;
     }
 
     .reply-compose-preview button {
@@ -596,17 +633,36 @@
         line-height: 1;
     }
 
+    .group-chat-input-shell {
+        align-items: flex-end;
+        display: flex;
+        gap: 0.5rem;
+        min-width: 0;
+        width: 100%;
+    }
+
     .group-chat-form textarea {
-        border-radius: 999px;
+        background: var(--tg-input-bg);
+        border: 1px solid var(--border-soft);
+        border-radius: 18px;
         box-sizing: border-box;
-        height: 44px;
+        color: var(--text-main);
+        flex: 1 1 auto;
+        font-size: 0.95rem;
         line-height: 1.35;
-        max-height: 88px;
-        min-height: 44px;
+        max-height: 120px;
+        min-height: 42px;
+        min-width: 0;
         overflow-y: auto;
-        padding: 0.6rem 3rem 0.6rem 1rem;
+        padding: 0.55rem 0.9rem;
         resize: none;
         width: 100%;
+    }
+
+    .group-chat-form textarea:focus {
+        border-color: var(--primary-soft);
+        box-shadow: none;
+        outline: none;
     }
 
     .group-chat-send-button {
@@ -616,15 +672,12 @@
         border-radius: 50%;
         color: var(--primary-contrast);
         display: inline-flex;
-        height: 2.25rem;
+        flex: 0 0 auto;
+        height: 42px;
         justify-content: center;
         padding: 0;
-        position: absolute;
-        right: 0.35rem;
-        top: 50%;
-        transform: translateY(-50%);
         transition: 0.15s ease;
-        width: 2.25rem;
+        width: 42px;
     }
 
     .group-chat-send-button[hidden] {
@@ -638,85 +691,50 @@
 
     .group-chat-send-button svg {
         fill: none;
-        height: 1.1rem;
+        height: 1.15rem;
         stroke: currentColor;
         stroke-linecap: round;
         stroke-linejoin: round;
         stroke-width: 2;
-        width: 1.1rem;
+        width: 1.15rem;
     }
 
     .mobile-message-hit-area {
         display: none;
     }
 
-    .group-message.is-highlighted .group-message-bubble {
-        box-shadow: 0 0 0 2px var(--primary-soft);
-    }
-
+    /* ---- mobile ---- */
     @media (max-width: 767px) {
-        body:has(.group-chat-shell) {
-            overflow-x: hidden;
-        }
-
         body:has(.group-chat-shell) .page-wrapper {
-            max-width: none;
             padding: 0;
-            width: 100%;
         }
 
         .group-chat-shell {
-            flex: 1 1 auto;
             margin-left: 0;
             margin-right: 0;
             max-width: 100%;
-            min-height: 0;
-            width: 100%;
         }
 
         .group-chat-card {
-            border-left: 0;
+            border: 0;
             border-radius: 0;
-            border-right: 0;
-            grid-template-rows: auto minmax(0, 1fr) auto;
         }
 
         .group-members-panel {
-            background: var(--card-bg);
             box-shadow: var(--shadow-soft);
             left: 0;
-            max-height: 34dvh;
-            overflow-y: auto;
             position: absolute;
             right: 0;
-            top: var(--group-chat-header-height, 72px);
+            top: var(--group-chat-header-height, 60px);
             z-index: 4;
         }
 
-        .group-chat-header {
-            grid-row: 1;
-        }
-
         .group-chat-messages {
-            grid-row: 2;
-            min-height: 0;
-        }
-
-        .group-chat-form {
-            grid-row: 3;
-        }
-
-        .group-chat-card:has(#groupMembers.show) .group-chat-form,
-        .group-chat-card:has(#groupMembers.collapsing) .group-chat-form {
-            display: none;
-        }
-
-        .group-chat-messages {
-            padding: 0.9rem 0.8rem;
+            padding: 0.75rem 0.7rem;
         }
 
         .group-message {
-            max-width: 92%;
+            max-width: 86%;
         }
 
         .group-message-actions {
@@ -731,14 +749,7 @@
         }
 
         .group-chat-form {
-            padding: 0.8rem;
-            padding-bottom: max(0.8rem, env(safe-area-inset-bottom));
-        }
-
-        .group-chat-form textarea {
-            height: 44px;
-            max-height: 88px;
-            min-height: 44px;
+            padding-bottom: max(0.6rem, env(safe-area-inset-bottom));
         }
     }
 </style>
