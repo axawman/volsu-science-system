@@ -1,8 +1,9 @@
 name: Django CI/CD Pipeline
 
+# Автозапуск отключён: сервер для деплоя больше не существует.
+# Запуск возможен только вручную через вкладку Actions.
 on:
-  push:
-    branches: [ "main", "master" ]
+  workflow_dispatch:
 
 jobs:
   test-and-lint:
