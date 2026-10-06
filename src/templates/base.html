@@ -386,6 +386,10 @@
         }
 
         @media (max-width: 991px) {
+            .navbar > .container {
+                justify-content: flex-start;
+            }
+
             .navbar-brand {
                 max-width: 100%;
             }
@@ -417,14 +421,14 @@
 
 <nav class="navbar navbar-expand-lg navbar-dark shadow-sm">
     <div class="container">
+        <button class="navbar-toggler me-3" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
         <a class="navbar-brand fw-semibold" href="/">
             <span class="brand-wordmark">Science<span class="brand-wordmark-hub">Hub</span></span>
             <span class="brand-subtitle">ВолГУ</span>
         </a>
-
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar">
-            <span class="navbar-toggler-icon"></span>
-        </button>
 
         <div class="collapse navbar-collapse" id="mainNavbar">
             <div class="navbar-nav me-auto ms-lg-4">
