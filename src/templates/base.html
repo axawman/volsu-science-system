@@ -41,6 +41,7 @@
             --shadow-hover: 0 4px 10px rgba(0, 0, 0, 0.14), 0 2px 4px rgba(0, 0, 0, 0.10);
             --navbar-bg: linear-gradient(90deg, #42a5f5, #1e88e5);
             --dot-muted: #5f6b7a;
+            --personal-accent: #43a047;
         }
 
         /* Dark theme — neutral Material grayscale, no colors */
@@ -60,6 +61,7 @@
                 --shadow-hover: 0 6px 16px rgba(0, 0, 0, 0.7);
                 --navbar-bg: #1e1e1e;
                 --dot-muted: #9e9e9e;
+                --personal-accent: #757575;
             }
         }
 
@@ -231,6 +233,10 @@
 
         .calendar-dot.event {
             background: var(--dot-muted);
+        }
+
+        .calendar-dot.personal {
+            background: var(--personal-accent);
         }
 
         .mini-list-item {
@@ -415,6 +421,64 @@
                 width: 100%;
             }
         }
+
+        .reminder-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+            max-width: 360px;
+            bottom: 1rem;
+            position: fixed;
+            right: 1rem;
+            width: calc(100% - 2rem);
+            z-index: 1060;
+        }
+
+        .reminder-toast {
+            background: var(--card-bg);
+            border: 1px solid var(--border-soft);
+            border-left: 4px solid var(--personal-accent);
+            border-radius: 0.6rem;
+            box-shadow: var(--shadow-hover);
+            color: var(--text-main);
+            padding: 0.75rem 0.9rem;
+        }
+
+        .reminder-toast-label {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .reminder-toast-title {
+            font-weight: 700;
+            margin: 0.15rem 0;
+            overflow-wrap: anywhere;
+        }
+
+        .reminder-toast-time {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        .reminder-toast-actions {
+            display: flex;
+            gap: 0.4rem;
+            justify-content: flex-end;
+            margin-top: 0.55rem;
+        }
+
+        @media (max-width: 575px) {
+            .reminder-stack {
+                bottom: auto;
+                left: 0.75rem;
+                max-width: none;
+                right: 0.75rem;
+                top: 4.75rem;
+                width: auto;
+            }
+        }
     </style>
 </head>
 <body>
@@ -528,6 +592,129 @@
     });
 })();
 </script>
+
+{% if request.user.is_authenticated %}
+    <div class="reminder-stack" id="reminder-stack" aria-live="polite"></div>
+    <input type="hidden" id="reminder-csrf-token" value="{{ csrf_token }}">
+    {{ personal_reminders|json_script:"personal-reminders-data" }}
+
+    <script>
+    (() => {
+        const stackEl = document.getElementById("reminder-stack");
+        const csrfToken = document.getElementById("reminder-csrf-token").value;
+        const calendarUrl = "{% url 'calendar' %}";
+        const maxTimeout = 2147483647;
+        const timers = new Map();
+
+        function startsInLabel(startsAt) {
+            const minutes = Math.round((Date.parse(startsAt) - Date.now()) / 60000);
+
+            if (minutes <= 0) {
+                return minutes > -60 ? "Уже началось" : "Прошло";
+            }
+            if (minutes < 60) {
+                return `Через ${minutes} мин`;
+            }
+            if (minutes < 60 * 24) {
+                return `Через ${Math.round(minutes / 60)} ч`;
+            }
+            return `Через ${Math.round(minutes / (60 * 24))} дн`;
+        }
+
+        function remove(id) {
+            clearTimeout(timers.get(id));
+            timers.delete(id);
+            stackEl.querySelector(`[data-reminder-id="${id}"]`)?.remove();
+        }
+
+        async function dismiss(reminder) {
+            remove(reminder.id);
+            const body = new FormData();
+            body.append("csrfmiddlewaretoken", csrfToken);
+            try {
+                await fetch(reminder.dismiss_url, {
+                    method: "POST",
+                    body,
+                    headers: {
+                        "X-Requested-With": "XMLHttpRequest"
+                    }
+                });
+            } catch (error) {
+                // Не скрылось на сервере — напоминание появится снова при следующей загрузке страницы
+            }
+        }
+
+        function show(reminder) {
+            timers.delete(reminder.id);
+            if (stackEl.querySelector(`[data-reminder-id="${reminder.id}"]`)) {
+                return;
+            }
+
+            const toast = document.createElement("div");
+            toast.className = "reminder-toast";
+            toast.dataset.reminderId = reminder.id;
+            toast.setAttribute("role", "status");
+
+            const label = document.createElement("div");
+            label.className = "reminder-toast-label";
+            label.textContent = "Напоминание";
+
+            const title = document.createElement("div");
+            title.className = "reminder-toast-title";
+            title.textContent = reminder.title;
+
+            const time = document.createElement("div");
+            time.className = "reminder-toast-time";
+            time.textContent = `${reminder.time_label} · ${startsInLabel(reminder.starts_at)}`;
+
+            const actions = document.createElement("div");
+            actions.className = "reminder-toast-actions";
+
+            const calendarLink = document.createElement("a");
+            calendarLink.className = "btn btn-sm btn-outline-secondary";
+            calendarLink.href = calendarUrl;
+            calendarLink.textContent = "Календарь";
+
+            const dismissButton = document.createElement("button");
+            dismissButton.type = "button";
+            dismissButton.className = "btn btn-sm btn-primary";
+            dismissButton.textContent = "Скрыть";
+            dismissButton.addEventListener("click", () => dismiss(reminder));
+
+            actions.append(calendarLink, dismissButton);
+            toast.append(label, title, time, actions);
+            stackEl.appendChild(toast);
+
+            if (document.hidden && "Notification" in window && Notification.permission === "granted") {
+                new Notification(`Напоминание: ${reminder.title}`, {
+                    body: reminder.time_label,
+                    tag: `reminder-${reminder.id}`
+                });
+            }
+        }
+
+        function add(reminder) {
+            remove(reminder.id);
+            const delay = Date.parse(reminder.remind_at) - Date.now();
+
+            if (delay <= 0) {
+                show(reminder);
+            } else if (delay < maxTimeout) {
+                timers.set(reminder.id, setTimeout(() => show(reminder), delay));
+            }
+        }
+
+        function requestPermission() {
+            if ("Notification" in window && Notification.permission === "default") {
+                Notification.requestPermission();
+            }
+        }
+
+        window.personalReminders = { add, remove, requestPermission };
+        JSON.parse(document.getElementById("personal-reminders-data").textContent).forEach(add);
+    })();
+    </script>
+{% endif %}
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>

@@ -9,7 +9,9 @@ from django.utils import timezone
 from .models import PlatformNews
 from works.models import Work, WorkSection
 from meetings.models import Meeting
-from events.models import Event
+from events.forms import PersonalEventForm
+from events.models import Event, PersonalEvent
+from events.views import personal_event_to_item
 from guide.models import GuideFile, GuideSection
 
 
@@ -49,7 +51,7 @@ def home(request):
 
         search_results = searchable_works.distinct().order_by("-updated_at")[:8]
 
-    upcoming_activity = get_upcoming_activity(now)
+    upcoming_activity = get_upcoming_activity(now, request.user)
 
     context = {
         "sections": sections,
@@ -63,7 +65,7 @@ def home(request):
     return render(request, "core/home.html", context)
 
 
-def get_upcoming_activity(now, limit=6):
+def get_upcoming_activity(now, user, limit=6):
     upcoming_meetings = (
         Meeting.objects
         .filter(start_at__gte=now)
@@ -98,6 +100,22 @@ def get_upcoming_activity(now, limit=6):
             "created_by": event.created_by,
         })
 
+    if user.is_authenticated:
+        personal_events = (
+            PersonalEvent.objects
+            .filter(owner=user, starts_at__gte=now)
+            .order_by("starts_at")[:limit]
+        )
+        for personal_event in personal_events:
+            upcoming_activity.append({
+                "title": personal_event.title,
+                "kind": "Личное",
+                "type": "personal",
+                "date": personal_event.starts_at,
+                "location": "",
+                "created_by": user,
+            })
+
     return sorted(upcoming_activity, key=lambda item: item["date"])[:limit]
 
 
@@ -105,8 +123,9 @@ def calendar_page(request):
     now = timezone.now()
 
     return render(request, "core/calendar.html", {
-        "upcoming_activity": get_upcoming_activity(now),
+        "upcoming_activity": get_upcoming_activity(now, request.user),
         "today": timezone.localdate().isoformat(),
+        "personal_event_form": PersonalEventForm() if request.user.is_authenticated else None,
     })
 
 
@@ -156,6 +175,13 @@ def calendar_items(request):
     items = [_calendar_item(meeting, meeting.start_at, "meeting", "Встреча", now) for meeting in meetings]
     items += [_calendar_item(event, event.event_date, "event", "Событие", now) for event in events]
 
+    if request.user.is_authenticated:
+        personal_events = PersonalEvent.objects.filter(
+            owner=request.user,
+            starts_at__gte=month_start,
+            starts_at__lt=month_end,
+        )
+        items += [personal_event_to_item(personal_event, now) for personal_event in personal_events]
     items.sort(key=lambda item: (item["date"], item["time"]))
 
     return JsonResponse({"items": items})

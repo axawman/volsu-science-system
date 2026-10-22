@@ -79,6 +79,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "events.context_processors.personal_reminders",
             ],
         },
     },
@@ -113,7 +114,7 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 LANGUAGE_CODE = "ru-ru"
-TIME_ZONE = "Europe/Berlin"
+TIME_ZONE = "Europe/Volgograd"
 USE_I18N = True
 USE_TZ = True
 

@@ -27,6 +27,7 @@ urlpatterns = [
     path("", include("core.urls")),
     path("works/", include("works.urls")),
     path("guide/", include("guide.urls")),
+    path("calendar/personal/", include("events.urls")),
 ]
 
 # Без nginx Django сам отдаёт публичные картинки. Файлы работ и справочника

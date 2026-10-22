@@ -10,10 +10,14 @@
                 <div class="fw-semibold mt-1">{{ item.title }}</div>
                 <div class="meta">
                     {% if item.location %}Место: {{ item.location }}<br>{% endif %}
-                    Добавил:
-                    <a href="{% url 'public_profile' item.created_by.username %}" class="mini-list-title">
-                        {{ item.created_by.profile.short_name }}
-                    </a>
+                    {% if item.type == "personal" %}
+                        Видно только вам
+                    {% else %}
+                        Добавил:
+                        <a href="{% url 'public_profile' item.created_by.username %}" class="mini-list-title">
+                            {{ item.created_by.profile.short_name }}
+                        </a>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -42,5 +46,9 @@
 
     .activity-dot.event {
         background: var(--dot-muted);
+    }
+
+    .activity-dot.personal {
+        background: var(--personal-accent);
     }
 </style>

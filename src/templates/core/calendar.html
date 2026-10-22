@@ -28,6 +28,12 @@
 
             <div id="calendar-days" class="calendar-grid page-calendar" aria-live="polite"></div>
             <p class="text-soft small mt-2 mb-0 d-none" id="calendar-error">Не удалось загрузить события. Обновите страницу.</p>
+            {% if not request.user.is_authenticated %}
+                <p class="meta mb-0 mt-3">
+                    <a href="{% url 'login' %}?next={{ request.path|urlencode }}">Войдите</a>,
+                    чтобы добавлять свои даты и напоминания. Их будете видеть только вы.
+                </p>
+            {% endif %}
         </div>
     </div>
 
@@ -38,6 +44,11 @@
                 <span class="badge badge-soft" id="selected-date-count"></span>
             </div>
             <div id="selected-date-items"></div>
+            {% if personal_event_form %}
+                <button type="button" class="btn btn-sm btn-outline-primary w-100 mt-3" id="add-personal-event">
+                    + Добавить свою запись
+                </button>
+            {% endif %}
         </div>
 
         <div class="card-soft p-4 mt-4">
@@ -46,6 +57,57 @@
         </div>
     </div>
 </div>
+
+{% if personal_event_form %}
+    <div class="modal fade" id="personalEventModal" tabindex="-1" aria-labelledby="personalEventModalTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <form class="modal-content" id="personal-event-form" action="{% url 'create_personal_event' %}" method="post" novalidate>
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h2 class="modal-title h5 mb-0" id="personalEventModalTitle">Новая запись</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="meta mt-0 mb-3">Запись и напоминание видите только вы.</p>
+                    {% with form=personal_event_form %}
+                        <div class="mb-3">
+                            <label class="form-label" for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>
+                            {{ form.title }}
+                            <div class="invalid-feedback" data-error-for="title"></div>
+                        </div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-7">
+                                <label class="form-label" for="{{ form.date.id_for_label }}">{{ form.date.label }}</label>
+                                {{ form.date }}
+                                <div class="invalid-feedback" data-error-for="date"></div>
+                            </div>
+                            <div class="col-5">
+                                <label class="form-label" for="{{ form.time.id_for_label }}">{{ form.time.label }}</label>
+                                {{ form.time }}
+                                <div class="invalid-feedback" data-error-for="time"></div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="{{ form.remind_before.id_for_label }}">{{ form.remind_before.label }}</label>
+                            {{ form.remind_before }}
+                            <div class="invalid-feedback" data-error-for="remind_before"></div>
+                        </div>
+                        <div>
+                            <label class="form-label" for="{{ form.description.id_for_label }}">{{ form.description.label }}</label>
+                            {{ form.description }}
+                            <div class="invalid-feedback" data-error-for="description"></div>
+                        </div>
+                        <div class="text-danger small mt-2 d-none" data-error-for="__all__"></div>
+                    {% endwith %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endif %}
 
 <style>
     .calendar-page-title {
@@ -105,6 +167,10 @@
         border-left-color: var(--dot-muted);
     }
 
+    .calendar-chip.personal {
+        border-left-color: var(--personal-accent);
+    }
+
     .calendar-chip-more {
         color: var(--text-muted);
         font-size: 0.68rem;
@@ -122,6 +188,21 @@
 
     .calendar-detail-item.event {
         border-left-color: var(--dot-muted);
+    }
+
+    .calendar-detail-item.personal {
+        border-left-color: var(--personal-accent);
+    }
+
+    .calendar-detail-actions {
+        display: flex;
+        gap: 0.4rem;
+        margin-top: 0.4rem;
+    }
+
+    .calendar-detail-actions .btn {
+        font-size: 0.78rem;
+        padding: 0.15rem 0.55rem;
     }
 
     .calendar-detail-title {
@@ -284,13 +365,21 @@
             if (item.location) {
                 details.append(`Место: ${item.location} · `);
             }
-            details.append("Добавил: ");
 
-            const authorLink = document.createElement("a");
-            authorLink.className = "mini-list-title";
-            authorLink.href = item.created_by_url;
-            authorLink.textContent = item.created_by_name || item.created_by;
-            details.appendChild(authorLink);
+            if (item.type === "personal") {
+                details.append("Видно только вам");
+                if (item.remind_label) {
+                    details.append(` · Напоминание: ${item.remind_label.toLowerCase()}`);
+                }
+            } else {
+                details.append("Добавил: ");
+
+                const authorLink = document.createElement("a");
+                authorLink.className = "mini-list-title";
+                authorLink.href = item.created_by_url;
+                authorLink.textContent = item.created_by_name || item.created_by;
+                details.appendChild(authorLink);
+            }
 
             wrapper.append(meta, title, details);
 
@@ -299,6 +388,26 @@
                 description.className = "calendar-detail-description mt-1";
                 description.textContent = item.description;
                 wrapper.appendChild(description);
+            }
+
+            if (item.type === "personal" && personalForm) {
+                const actions = document.createElement("div");
+                actions.className = "calendar-detail-actions";
+
+                const editButton = document.createElement("button");
+                editButton.type = "button";
+                editButton.className = "btn btn-outline-secondary";
+                editButton.textContent = "Изменить";
+                editButton.addEventListener("click", () => openPersonalForm(item));
+
+                const deleteButton = document.createElement("button");
+                deleteButton.type = "button";
+                deleteButton.className = "btn btn-outline-danger";
+                deleteButton.textContent = "Удалить";
+                deleteButton.addEventListener("click", () => deletePersonalEvent(item));
+
+                actions.append(editButton, deleteButton);
+                wrapper.appendChild(actions);
             }
 
             selectedItemsEl.appendChild(wrapper);
@@ -442,6 +551,120 @@
     document.getElementById("today-button").addEventListener("click", () => {
         showMonth(new Date(todayYear, todayMonth - 1, 1), todayStr);
     });
+
+    const personalForm = document.getElementById("personal-event-form");
+    const personalModalEl = document.getElementById("personalEventModal");
+    // bootstrap.bundle подключается в base.html после этого скрипта, поэтому модалку берём лениво
+    const personalModal = () => bootstrap.Modal.getOrCreateInstance(personalModalEl);
+    const createUrl = personalForm?.action;
+
+    function clearFormErrors() {
+        personalForm.querySelectorAll(".is-invalid").forEach((field) => field.classList.remove("is-invalid"));
+        personalForm.querySelectorAll("[data-error-for]").forEach((errorEl) => {
+            errorEl.textContent = "";
+        });
+        personalForm.querySelector('[data-error-for="__all__"]').classList.add("d-none");
+    }
+
+    function showFormErrors(errors) {
+        Object.entries(errors).forEach(([field, messages]) => {
+            const errorEl = personalForm.querySelector(`[data-error-for="${field}"]`);
+            if (errorEl) {
+                errorEl.textContent = messages.join(" ");
+                errorEl.classList.remove("d-none");
+            }
+            personalForm.elements[field]?.classList.add("is-invalid");
+        });
+    }
+
+    function openPersonalForm(item = null) {
+        clearFormErrors();
+        personalForm.reset();
+        personalForm.action = item ? item.update_url : createUrl;
+        personalForm.elements.date.value = item ? item.date : selectedDateStr;
+        if (item) {
+            personalForm.elements.title.value = item.title;
+            personalForm.elements.time.value = item.time;
+            personalForm.elements.description.value = item.description;
+            personalForm.elements.remind_before.value = item.remind_before ?? "";
+        }
+        document.getElementById("personalEventModalTitle").textContent = item ? "Изменить запись" : "Новая запись";
+        personalModal().show();
+    }
+
+    function refreshAfterChange(dateStr) {
+        monthCache.clear();
+        const [year, month] = dateStr.split("-").map(Number);
+        showMonth(new Date(year, month - 1, 1), dateStr);
+    }
+
+    async function postForm(url, body) {
+        const response = await fetch(url, {
+            method: "POST",
+            body,
+            headers: {
+                "X-Requested-With": "XMLHttpRequest"
+            }
+        });
+        const data = await response.json().catch(() => ({}));
+        return { response, data };
+    }
+
+    async function deletePersonalEvent(item) {
+        if (!confirm(`Удалить запись «${item.title}»?`)) {
+            return;
+        }
+
+        const body = new FormData();
+        body.append("csrfmiddlewaretoken", personalForm.elements.csrfmiddlewaretoken.value);
+
+        try {
+            const { response } = await postForm(item.delete_url, body);
+            if (!response.ok) {
+                throw new Error(response.statusText);
+            }
+            window.personalReminders?.remove(item.id);
+            refreshAfterChange(item.date);
+        } catch (error) {
+            alert("Не удалось удалить запись. Попробуйте ещё раз.");
+        }
+    }
+
+    if (personalForm) {
+        document.getElementById("add-personal-event").addEventListener("click", () => openPersonalForm());
+
+        personalForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            clearFormErrors();
+
+            const submitButton = personalForm.querySelector('button[type="submit"]');
+            submitButton.disabled = true;
+
+            try {
+                const { response, data } = await postForm(personalForm.action, new FormData(personalForm));
+
+                if (response.status === 400 && data.errors) {
+                    showFormErrors(data.errors);
+                    return;
+                }
+                if (!response.ok) {
+                    throw new Error(response.statusText);
+                }
+
+                window.personalReminders?.remove(data.item.id);
+                if (data.reminder) {
+                    window.personalReminders?.add(data.reminder);
+                    window.personalReminders?.requestPermission();
+                }
+                personalModal().hide();
+                refreshAfterChange(data.item.date);
+            } catch (error) {
+                showFormErrors({ __all__: ["Не удалось сохранить запись. Попробуйте ещё раз."] });
+            } finally {
+                submitButton.disabled = false;
+            }
+        });
+    }
 
     showMonth(currentDate, todayStr);
 })();
