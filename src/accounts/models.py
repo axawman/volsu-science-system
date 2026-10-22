@@ -156,3 +156,32 @@ class GroupChatMessage(models.Model):
         self.is_deleted = True
         self.deleted_at = timezone.now()
         self.save(update_fields=["text", "is_deleted", "deleted_at"])
+
+
+class EmailCode(models.Model):
+    """Одноразовый код из письма. Хранится только хеш, попытки считаются на сервере, а не в сессии."""
+
+    PURPOSE_LOGIN = "login"
+    PURPOSE_REGISTRATION = "registration"
+    PURPOSE_CHOICES = [
+        (PURPOSE_LOGIN, "Вход"),
+        (PURPOSE_REGISTRATION, "Регистрация"),
+    ]
+
+    email = models.EmailField("Почта")
+    purpose = models.CharField("Назначение", max_length=20, choices=PURPOSE_CHOICES)
+    code_hash = models.CharField("Хеш кода", max_length=64)
+    attempts = models.PositiveSmallIntegerField("Неверных попыток", default=0)
+    created_at = models.DateTimeField("Создан", auto_now_add=True)
+    expires_at = models.DateTimeField("Действует до")
+    used_at = models.DateTimeField("Использован или аннулирован", blank=True, null=True)
+
+    class Meta:
+        verbose_name = "Код из письма"
+        verbose_name_plural = "Коды из писем"
+        indexes = [
+            models.Index(fields=["email", "purpose", "created_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.get_purpose_display()}: {self.email}"

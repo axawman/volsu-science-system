@@ -1,3 +1,5 @@
+import re
+from datetime import timedelta
 from unittest.mock import patch
 
 from django.contrib.admin.sites import AdminSite
@@ -9,7 +11,8 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .admin import UserAdmin, can_manage_admin_target
-from .models import GroupChatMessage, Profile
+from .email_codes import MAX_ATTEMPTS, MAX_CODES_PER_HOUR
+from .models import EmailCode, GroupChatMessage, Profile
 from .services import assign_study_group_from_email
 from .utils import get_student_record_book_number, parse_volsu_student_email
 
@@ -185,6 +188,165 @@ class ProfilePasswordChangeTests(TestCase):
 
 
 @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+def code_from_last_email():
+    return re.search(r"\b(\d{6})\b", mail.outbox[-1].body).group(1)
+
+
+def wrong_code(code):
+    return f"{(int(code) + 1) % 1000000:06d}"
+
+
+class EmailCodeLimitTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="student",
+            email="student@volsu.ru",
+            password="correct-password",
+        )
+
+    def send_login_code(self, client=None):
+        return (client or self.client).post(reverse("send_login_code"), {"email": self.user.email})
+
+    def verify_login(self, code, client=None):
+        return (client or self.client).post(reverse("verify_login_code"), {"email": self.user.email, "code": code})
+
+    def allow_resend(self):
+        EmailCode.objects.update(created_at=timezone.now() - timedelta(minutes=2))
+
+    def test_code_is_burned_after_max_wrong_attempts(self):
+        self.send_login_code()
+        code = code_from_last_email()
+
+        for attempt in range(MAX_ATTEMPTS):
+            response = self.verify_login(wrong_code(code))
+            self.assertEqual(response.status_code, 400)
+
+        self.assertIn("Слишком много неверных попыток", response.json()["error"])
+        response = self.verify_login(code)
+        self.assertEqual(response.status_code, 400)
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+    def test_attempts_are_counted_across_sessions(self):
+        self.send_login_code()
+        code = code_from_last_email()
+
+        for attempt in range(MAX_ATTEMPTS):
+            self.verify_login(wrong_code(code), client=Client())
+
+        response = self.verify_login(code)
+        self.assertEqual(response.status_code, 400)
+
+    def test_wrong_code_reports_remaining_attempts(self):
+        self.send_login_code()
+
+        response = self.verify_login(wrong_code(code_from_last_email()))
+
+        self.assertIn(f"Осталось попыток: {MAX_ATTEMPTS - 1}", response.json()["error"])
+
+    def test_code_cannot_be_reused(self):
+        self.send_login_code()
+        code = code_from_last_email()
+        self.assertEqual(self.verify_login(code).status_code, 200)
+
+        response = self.verify_login(code, client=Client())
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_new_code_invalidates_previous_one(self):
+        self.send_login_code()
+        old_code = code_from_last_email()
+        self.allow_resend()
+        self.send_login_code()
+        new_code = code_from_last_email()
+
+        if old_code != new_code:
+            self.assertEqual(self.verify_login(old_code).status_code, 400)
+        self.assertEqual(self.verify_login(new_code).status_code, 200)
+
+    def test_expired_code_is_rejected(self):
+        self.send_login_code()
+        EmailCode.objects.update(expires_at=timezone.now() - timedelta(seconds=1))
+
+        response = self.verify_login(code_from_last_email())
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_resend_cooldown_applies_to_every_session(self):
+        self.send_login_code()
+
+        response = self.send_login_code(client=Client())
+
+        self.assertEqual(response.status_code, 429)
+        self.assertGreater(response.json()["retry_after"], 0)
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_hourly_limit_per_email(self):
+        for number in range(MAX_CODES_PER_HOUR):
+            self.assertEqual(self.send_login_code().status_code, 200)
+            self.allow_resend()
+
+        response = self.send_login_code(client=Client())
+
+        self.assertEqual(response.status_code, 429)
+        self.assertIn("Слишком много запросов", response.json()["error"])
+
+    def test_failed_email_does_not_count_against_limits(self):
+        with patch("accounts.views.send_mail", side_effect=OSError("smtp down")), \
+                self.assertLogs("accounts.views", level="ERROR"):
+            response = self.send_login_code()
+
+        self.assertEqual(response.status_code, 502)
+        self.assertNotIn("smtp down", response.json()["error"])
+        self.assertFalse(EmailCode.objects.exists())
+        self.assertEqual(self.send_login_code().status_code, 200)
+
+    def test_registration_requires_verified_email(self):
+        email = "pmib-231_123456@volsu.ru"
+        form = {
+            "full_name": "Новый Студент",
+            "email": email,
+            "password1": "Very-strong-pass-42",
+            "password2": "Very-strong-pass-42",
+        }
+
+        response = self.client.post(reverse("register"), form)
+        self.assertContains(response, "Подтвердите почту кодом")
+
+        self.client.post(reverse("send_registration_code"), {"email": email})
+        code = code_from_last_email()
+        verify = self.client.post(reverse("verify_registration_code"), {"email": email, "code": code})
+        self.assertEqual(verify.status_code, 200)
+
+        response = self.client.post(reverse("register"), form)
+        self.assertRedirects(response, "/")
+        self.assertTrue(User.objects.filter(email=email).exists())
+
+    def test_registration_code_attempts_are_limited(self):
+        email = "pmib-231_123456@volsu.ru"
+        self.client.post(reverse("send_registration_code"), {"email": email})
+        code = code_from_last_email()
+
+        for attempt in range(MAX_ATTEMPTS):
+            Client().post(reverse("verify_registration_code"), {"email": email, "code": wrong_code(code)})
+
+        response = self.client.post(reverse("verify_registration_code"), {"email": email, "code": code})
+        self.assertEqual(response.status_code, 400)
+
+    def test_verified_flag_is_bound_to_email(self):
+        email = "pmib-231_123456@volsu.ru"
+        self.client.post(reverse("send_registration_code"), {"email": email})
+        self.client.post(reverse("verify_registration_code"), {"email": email, "code": code_from_last_email()})
+
+        response = self.client.post(reverse("register"), {
+            "full_name": "Чужая почта",
+            "email": "pmib-231_999999@volsu.ru",
+            "password1": "Very-strong-pass-42",
+            "password2": "Very-strong-pass-42",
+        })
+
+        self.assertContains(response, "Подтвердите почту кодом")
+
+
 class LoginCodeTests(TestCase):
     def setUp(self):
         self.client = Client()
@@ -217,14 +379,16 @@ class LoginCodeTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(mail.outbox), 1)
-        code = self.client.session["login_email_code"]["code"]
+        code = code_from_last_email()
         self.assertEqual(len(code), 6)
-        self.assertTrue(code.isdigit())
-        self.assertIn(code, mail.outbox[0].body)
+        self.assertNotIn(code, str(dict(self.client.session)))
+        record = EmailCode.objects.get()
+        self.assertEqual(len(record.code_hash), 64)
+        self.assertNotEqual(record.code_hash, code)
 
     def test_verify_login_code_logs_user_in(self):
         self.client.post(reverse("send_login_code"), {"email": self.user.email})
-        code = self.client.session["login_email_code"]["code"]
+        code = code_from_last_email()
 
         response = self.client.post(reverse("verify_login_code"), {
             "email": self.user.email,

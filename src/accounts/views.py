@@ -1,6 +1,6 @@
 import django
 import json
-import secrets
+import logging
 import shutil
 import re
 import smtplib
@@ -28,8 +28,9 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from .decorators import admin_required
+from .email_codes import CODE_TTL, RESEND_COOLDOWN, CodeError, issue_code, verify_code
 from .forms import DataImportForm, GroupChatMessageForm, ProfileEditForm, ProfilePasswordForm, RegisterForm
-from .models import GroupChatMessage, Profile
+from .models import EmailCode, GroupChatMessage, Profile
 from .services import assign_study_group_from_email
 from .signals import create_user_profile, save_user_profile
 
@@ -37,13 +38,11 @@ BACKUP_FILENAME_PREFIX = "science_registry_backup"
 FIXTURE_FILENAME = "data.json"
 METADATA_FILENAME = "metadata.json"
 MEDIA_DIRNAME = "media"
-REGISTRATION_CODE_SESSION_KEY = "registration_email_code"
-REGISTRATION_CODE_COOLDOWNS_SESSION_KEY = "registration_email_code_cooldowns"
-REGISTRATION_CODE_TTL_MINUTES = 5
-REGISTRATION_CODE_RESEND_COOLDOWN_SECONDS = 60
-LOGIN_CODE_SESSION_KEY = "login_email_code"
-LOGIN_CODE_TTL_MINUTES = 5
+REGISTRATION_VERIFIED_SESSION_KEY = "registration_email_verified"
+REGISTRATION_VERIFIED_TTL = timedelta(minutes=30)
 GROUP_CHAT_ONLINE_WINDOW_SECONDS = 120
+
+logger = logging.getLogger(__name__)
 
 EXCLUDED_DUMPDATA_MODELS = [
     "admin.logentry",
@@ -81,29 +80,41 @@ def _make_username_from_email(email):
     return username
 
 
-def _registration_code_is_valid(request, email, code):
-    verification = request.session.get(REGISTRATION_CODE_SESSION_KEY) or {}
-    expires_at = verification.get("expires_at")
+def _send_code_email(email, purpose, subject, intro):
+    """Выдаёт код и отправляет письмо. Возвращает JsonResponse с ошибкой или None."""
+    try:
+        code, record = issue_code(email, purpose)
+    except CodeError as error:
+        return JsonResponse({"error": str(error), "retry_after": error.retry_after}, status=429)
 
-    if not expires_at:
+    minutes = int(CODE_TTL.total_seconds() // 60)
+    try:
+        send_mail(
+            subject=subject,
+            message=f"{intro}: {code}\n\nКод действует {minutes} минут.",
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[email],
+            fail_silently=False,
+        )
+    except (BadHeaderError, OSError, smtplib.SMTPException, TimeoutError):
+        logger.exception("Не удалось отправить код на %s", email)
+        # Письмо не ушло — не засчитываем запрос, чтобы можно было сразу повторить
+        record.delete()
+        return JsonResponse({"error": "Не удалось отправить письмо. Попробуйте позже."}, status=502)
+
+    return None
+
+
+def _registration_email_is_verified(request, email):
+    verified = request.session.get(REGISTRATION_VERIFIED_SESSION_KEY)
+    if not isinstance(verified, dict) or verified.get("email") != _normalize_email(email):
         return False
-
-    expires_at = datetime.fromisoformat(expires_at)
-    if timezone.is_naive(expires_at):
-        expires_at = timezone.make_aware(expires_at)
-
-    return (
-        verification.get("email") == _normalize_email(email)
-        and verification.get("code") == (code or "").strip()
-        and expires_at >= timezone.now()
-    )
+    return datetime.fromisoformat(verified["expires_at"]) >= timezone.now()
 
 
 @require_POST
 def send_registration_code(request):
     email = _normalize_email(request.POST.get("email"))
-    cooldowns = request.session.get(REGISTRATION_CODE_COOLDOWNS_SESSION_KEY) or {}
-    sent_at = cooldowns.get(email)
 
     if not email.endswith("@volsu.ru"):
         return JsonResponse({"error": "Введите почту в домене @volsu.ru."}, status=400)
@@ -111,71 +122,34 @@ def send_registration_code(request):
     if User.objects.filter(email__iexact=email).exists():
         return JsonResponse({"error": "Пользователь с такой почтой уже зарегистрирован."}, status=400)
 
-    if sent_at:
-        sent_at = datetime.fromisoformat(sent_at)
-        if timezone.is_naive(sent_at):
-            sent_at = timezone.make_aware(sent_at)
-
-        resend_available_at = sent_at + timedelta(seconds=REGISTRATION_CODE_RESEND_COOLDOWN_SECONDS)
-        if resend_available_at > timezone.now():
-            retry_after = int((resend_available_at - timezone.now()).total_seconds()) + 1
-            return JsonResponse({
-                "error": "Отправить код заново можно через минуту.",
-                "retry_after": retry_after,
-            }, status=429)
-
-    code = f"{secrets.randbelow(1000000):06d}"
-    now = timezone.now()
-    expires_at = now + timedelta(minutes=REGISTRATION_CODE_TTL_MINUTES)
-
-    try:
-        send_mail(
-            subject="Код подтверждения регистрации ScienceHub ВолГУ",
-            message=f"Ваш код подтверждения: {code}\n\nКод действует {REGISTRATION_CODE_TTL_MINUTES} минут.",
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[email],
-            fail_silently=False,
-        )
-    except (BadHeaderError, OSError, smtplib.SMTPException, TimeoutError) as error:
-        return JsonResponse({"error": f"Не удалось отправить код: {error}"}, status=502)
-
-    request.session[REGISTRATION_CODE_SESSION_KEY] = {
-        "email": email,
-        "code": code,
-        "expires_at": expires_at.isoformat(),
-        "sent_at": now.isoformat(),
-    }
-
-    fresh_cooldowns = {}
-    for cooldown_email, cooldown_sent_at in cooldowns.items():
-        cooldown_sent_at = datetime.fromisoformat(cooldown_sent_at)
-        if timezone.is_naive(cooldown_sent_at):
-            cooldown_sent_at = timezone.make_aware(cooldown_sent_at)
-
-        cooldown_expires_at = cooldown_sent_at + timedelta(seconds=REGISTRATION_CODE_RESEND_COOLDOWN_SECONDS)
-        if cooldown_expires_at > now:
-            fresh_cooldowns[cooldown_email] = cooldown_sent_at.isoformat()
-
-    fresh_cooldowns[email] = now.isoformat()
-    request.session[REGISTRATION_CODE_COOLDOWNS_SESSION_KEY] = fresh_cooldowns
-    request.session.modified = True
+    error_response = _send_code_email(
+        email,
+        EmailCode.PURPOSE_REGISTRATION,
+        subject="Код подтверждения регистрации ScienceHub ВолГУ",
+        intro="Ваш код подтверждения",
+    )
+    if error_response:
+        return error_response
 
     return JsonResponse({
         "message": "Код отправлен на почту.",
-        "resend_after": REGISTRATION_CODE_RESEND_COOLDOWN_SECONDS,
+        "resend_after": int(RESEND_COOLDOWN.total_seconds()),
     })
 
 
 @require_POST
 def verify_registration_code(request):
     email = _normalize_email(request.POST.get("email"))
-    code = request.POST.get("code")
 
-    if not _registration_code_is_valid(request, email, code):
-        return JsonResponse({"error": "Неверный или устаревший код."}, status=400)
+    try:
+        verify_code(email, EmailCode.PURPOSE_REGISTRATION, request.POST.get("code"))
+    except CodeError as error:
+        return JsonResponse({"error": str(error)}, status=400)
 
-    request.session["registration_email_verified"] = email
-    request.session.modified = True
+    request.session[REGISTRATION_VERIFIED_SESSION_KEY] = {
+        "email": email,
+        "expires_at": (timezone.now() + REGISTRATION_VERIFIED_TTL).isoformat(),
+    }
     return JsonResponse({"message": "Почта подтверждена."})
 
 
@@ -193,59 +167,39 @@ def _get_safe_login_redirect(request):
 @require_POST
 def send_login_code(request):
     email = _normalize_email(request.POST.get("email"))
-    user = User.objects.filter(email__iexact=email, is_active=True).first()
 
-    if not user:
+    if not User.objects.filter(email__iexact=email, is_active=True).exists():
         return JsonResponse({"error": "Пользователь с такой почтой не зарегистрирован."}, status=404)
 
-    code = f"{secrets.randbelow(1000000):06d}"
-    expires_at = timezone.now() + timedelta(minutes=LOGIN_CODE_TTL_MINUTES)
+    error_response = _send_code_email(
+        email,
+        EmailCode.PURPOSE_LOGIN,
+        subject="Код входа ScienceHub ВолГУ",
+        intro="Ваш код входа",
+    )
+    if error_response:
+        return error_response
 
-    try:
-        send_mail(
-            subject="Код входа ScienceHub ВолГУ",
-            message=f"Ваш код входа: {code}\n\nКод действует {LOGIN_CODE_TTL_MINUTES} минут.",
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[email],
-            fail_silently=False,
-        )
-    except (BadHeaderError, OSError, smtplib.SMTPException, TimeoutError) as error:
-        return JsonResponse({"error": f"Не удалось отправить код: {error}"}, status=502)
-
-    request.session[LOGIN_CODE_SESSION_KEY] = {
-        "email": email,
-        "user_id": user.id,
-        "code": code,
-        "expires_at": expires_at.isoformat(),
-    }
-    request.session.modified = True
-    return JsonResponse({"message": "Код отправлен на почту."})
+    return JsonResponse({
+        "message": "Код отправлен на почту.",
+        "resend_after": int(RESEND_COOLDOWN.total_seconds()),
+    })
 
 
 @require_POST
 def verify_login_code(request):
     email = _normalize_email(request.POST.get("email"))
-    code = (request.POST.get("code") or "").strip()
-    verification = request.session.get(LOGIN_CODE_SESSION_KEY) or {}
-    expires_at = verification.get("expires_at")
 
-    if expires_at:
-        expires_at = datetime.fromisoformat(expires_at)
-        if timezone.is_naive(expires_at):
-            expires_at = timezone.make_aware(expires_at)
+    try:
+        verify_code(email, EmailCode.PURPOSE_LOGIN, request.POST.get("code"))
+    except CodeError as error:
+        return JsonResponse({"error": str(error)}, status=400)
 
-    if (
-        not expires_at
-        or expires_at < timezone.now()
-        or verification.get("email") != email
-        or verification.get("code") != code
-    ):
-        return JsonResponse({"error": "Неверный или устаревший код."}, status=400)
+    user = User.objects.filter(email__iexact=email, is_active=True).first()
+    if user is None:
+        return JsonResponse({"error": "Пользователь не найден или отключён."}, status=400)
 
-    user = get_object_or_404(User, id=verification.get("user_id"), is_active=True)
     login(request, user)
-    request.session.pop(LOGIN_CODE_SESSION_KEY, None)
-    request.session.modified = True
     return JsonResponse({"redirect_url": _get_safe_login_redirect(request)})
 
 
@@ -257,10 +211,8 @@ def register_view(request):
         form = RegisterForm(request.POST)
         if form.is_valid():
             email = form.cleaned_data["email"]
-            verification_code = request.POST.get("email_verification_code")
-            verified_email = request.session.get("registration_email_verified")
 
-            if verified_email != email or not _registration_code_is_valid(request, email, verification_code):
+            if not _registration_email_is_verified(request, email):
                 form.add_error("email", "Подтвердите почту кодом перед регистрацией.")
                 return render(request, "accounts/register.html", {"form": form})
 
@@ -274,9 +226,7 @@ def register_view(request):
             assign_study_group_from_email(user.profile)
 
             login(request, user)
-            request.session.pop(REGISTRATION_CODE_SESSION_KEY, None)
-            request.session.pop(REGISTRATION_CODE_COOLDOWNS_SESSION_KEY, None)
-            request.session.pop("registration_email_verified", None)
+            request.session.pop(REGISTRATION_VERIFIED_SESSION_KEY, None)
             return redirect("/")
     else:
         form = RegisterForm()
