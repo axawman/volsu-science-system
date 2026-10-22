@@ -7,7 +7,8 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .models import PlatformNews
-from works.models import Work, WorkSection
+from works.models import WorkSection
+from works.permissions import visible_work_filter, visible_works
 from meetings.models import Meeting
 from events.forms import PersonalEventForm
 from events.models import Event, PersonalEvent
@@ -18,29 +19,15 @@ from guide.models import GuideFile, GuideSection
 def home(request):
     now = timezone.now()
 
-    visible_works_filter = Q(works__status="published", works__visibility="public")
-    if request.user.is_authenticated and request.user.profile.is_admin():
-        visible_works_filter = Q(works__isnull=False)
-    elif request.user.is_authenticated:
-        visible_works_filter = Q(works__status="published", works__visibility="public") | Q(works__author=request.user)
-
     sections = WorkSection.objects.annotate(
-        work_count=Count("works", filter=visible_works_filter, distinct=True)
+        work_count=Count("works", filter=visible_work_filter(request.user, prefix="works__"), distinct=True)
     ).order_by("sort_order", "name")
 
     search_query = request.GET.get("q", "").strip()
     search_results = []
 
     if search_query:
-        searchable_works = Work.objects.select_related("author", "author__profile", "section")
-        if request.user.is_authenticated and request.user.profile.is_admin():
-            pass
-        elif request.user.is_authenticated:
-            searchable_works = searchable_works.filter(
-                Q(status="published", visibility="public") | Q(author=request.user)
-            )
-        else:
-            searchable_works = searchable_works.filter(status="published", visibility="public")
+        searchable_works = visible_works(request.user).select_related("author", "author__profile", "section")
 
         for term in search_query.split():
             searchable_works = searchable_works.filter(

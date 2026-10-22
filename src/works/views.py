@@ -4,7 +4,6 @@ from io import BytesIO
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Q
 from django.views.decorators.http import require_POST
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
@@ -13,12 +12,9 @@ from django.utils.text import slugify
 
 from .forms import WorkCreateForm, WorkEditForm, WorkVersionForm
 from .models import Work, WorkSection, WorkVersion, WorkVersionFile
+from .permissions import can_manage_work, can_view_work, is_publicly_available, is_works_admin, visible_works
 from discussions.forms import WorkCommentForm
 from discussions.models import WorkComment
-
-
-def user_can_manage_work(user, work):
-    return user == work.author or user.is_staff or user.is_superuser or user.profile.is_admin()
 
 
 @login_required
@@ -59,8 +55,8 @@ def create_work(request):
 def update_work(request, work_id):
     work = get_object_or_404(Work.objects.select_related("author", "section"), id=work_id)
 
-    if not user_can_manage_work(request.user, work):
-        return HttpResponse("Доступ запрещен")
+    if not can_manage_work(request.user, work):
+        return HttpResponse("Доступ запрещен", status=403)
 
     if request.method == "POST":
         form = WorkEditForm(request.POST, instance=work)
@@ -92,8 +88,8 @@ def update_work(request, work_id):
 def upload_version(request, work_id):
     work = get_object_or_404(Work, id=work_id)
 
-    if not user_can_manage_work(request.user, work):
-        return HttpResponse("Доступ запрещен")
+    if not can_manage_work(request.user, work):
+        return HttpResponse("Доступ запрещен", status=403)
 
     if request.method == "POST":
         form = WorkVersionForm(request.POST, request.FILES)
@@ -137,15 +133,7 @@ def all_works(request):
 
 
 def _visible_works_queryset_for_user(user):
-    works = Work.objects.select_related("author", "author__profile", "section")
-
-    if user.is_authenticated and user.profile.is_admin():
-        return works.order_by("-created_at")
-    if user.is_authenticated:
-        return works.filter(
-            Q(status="published", visibility="public") | Q(author=user)
-        ).distinct().order_by("-created_at")
-    return works.filter(status="published", visibility="public").order_by("-created_at")
+    return visible_works(user).select_related("author", "author__profile", "section").order_by("-created_at")
 
 
 def section_detail(request, section_id):
@@ -185,27 +173,16 @@ def _user_can_edit_comment(user, comment):
 
 
 def _user_can_delete_comment(user, comment):
-    return user.is_authenticated and (
-        comment.author_id == user.id
-        or user.is_staff
-        or user.is_superuser
-        or user.profile.is_admin()
-    )
+    return user.is_authenticated and (comment.author_id == user.id or is_works_admin(user))
 
 
 def work_detail(request, work_id):
     work = get_object_or_404(Work.objects.select_related("author", "section", "author__profile"), id=work_id)
 
-    is_owner_or_admin = request.user.is_authenticated and (
-        request.user == work.author
-        or request.user.is_staff
-        or request.user.is_superuser
-        or request.user.profile.is_admin()
-    )
-    is_publicly_available = work.status == "published" and work.visibility == "public"
+    if not can_view_work(request.user, work):
+        return HttpResponse("Доступ запрещен", status=403)
 
-    if not is_publicly_available and not is_owner_or_admin:
-        return HttpResponse("Доступ запрещен")
+    is_public = is_publicly_available(work)
 
     if request.method == "POST":
         if not request.user.is_authenticated:
@@ -213,7 +190,7 @@ def work_detail(request, work_id):
                 return JsonResponse({"error": "Чтобы оставить комментарий, нужно войти."}, status=403)
             return redirect("login")
 
-        if not is_publicly_available:
+        if not is_public:
             if _is_ajax(request):
                 return JsonResponse({"error": "Комментарии разрешены только для опубликованных открытых работ."}, status=403)
             return HttpResponse("Комментарии разрешены только для опубликованных открытых работ")
@@ -262,11 +239,10 @@ def work_detail(request, work_id):
 
     return render(request, "works/work_detail.html", {
         "work": work,
-        "is_publicly_available": is_publicly_available,
+        "is_publicly_available": is_public,
         "versions": versions,
         "comments": comments,
         "comment_form": comment_form,
-        "is_publicly_available": is_publicly_available,
         "total_files": total_files,
     })
 
@@ -325,16 +301,9 @@ def delete_comment(request, work_id, comment_id):
 
 
 def _ensure_work_visible_to_user(request, work):
-    if work.visibility == "private":
-        if not request.user.is_authenticated:
-            raise Http404()
-        if (
-            request.user != work.author
-            and not request.user.is_staff
-            and not request.user.is_superuser
-            and not request.user.profile.is_admin()
-        ):
-            raise Http404()
+    # Те же правила, что у страницы работы: черновик не скачать, даже если он «открытый»
+    if not can_view_work(request.user, work):
+        raise Http404()
 
 
 @login_required
