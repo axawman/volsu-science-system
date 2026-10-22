@@ -31,5 +31,18 @@ services:
     depends_on:
       - db
 
+  reminders:
+    build: .
+    container_name: science_registry_reminders
+    restart: unless-stopped
+    # Раз в минуту отправляет на почту наступившие напоминания из календаря
+    command: sh -c "cd /app/src && python manage.py send_reminders --loop --interval 60"
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    depends_on:
+      - web
+
 volumes:
   postgres_data:

@@ -67,7 +67,9 @@ class PersonalEventForm(forms.ModelForm):
         event.starts_at = self.cleaned_data["starts_at"]
 
         if self.reminder_changed():
+            # Новое время напоминания — снова показать на сайте и отправить на почту
             event.reminder_dismissed_at = None
+            event.reminder_emailed_at = None
 
         if commit:
             event.save()

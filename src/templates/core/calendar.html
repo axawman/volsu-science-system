@@ -68,7 +68,10 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="meta mt-0 mb-3">Запись и напоминание видите только вы.</p>
+                    <p class="meta mt-0 mb-3">
+                        Запись видите только вы. Напоминание появится на сайте
+                        и придёт на почту {{ request.user.email }}.
+                    </p>
                     {% with form=personal_event_form %}
                         <div class="mb-3">
                             <label class="form-label" for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>

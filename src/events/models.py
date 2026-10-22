@@ -49,6 +49,7 @@ class PersonalEvent(models.Model):
     )
     remind_at = models.DateTimeField("Время напоминания", blank=True, null=True, editable=False)
     reminder_dismissed_at = models.DateTimeField("Напоминание скрыто", blank=True, null=True)
+    reminder_emailed_at = models.DateTimeField("Напоминание отправлено на почту", blank=True, null=True)
     created_at = models.DateTimeField("Дата создания", auto_now_add=True)
     updated_at = models.DateTimeField("Обновлено", auto_now=True)
 
@@ -59,6 +60,7 @@ class PersonalEvent(models.Model):
         indexes = [
             models.Index(fields=["owner", "starts_at"]),
             models.Index(fields=["owner", "remind_at"]),
+            models.Index(fields=["remind_at", "reminder_emailed_at"]),
         ]
 
     def __str__(self):
