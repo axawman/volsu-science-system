@@ -373,6 +373,41 @@ class StudyGroupChatTests(TestCase):
         self.assertEqual(message.text, "Новый текст")
         self.assertIsNotNone(message.edited_at)
 
+    def test_empty_edit_returns_errors_for_ajax_and_keeps_text(self):
+        user = self.create_student("first", "pmib-231_111111@volsu.ru")
+        message = GroupChatMessage.objects.create(
+            study_group=user.profile.study_group,
+            author=user,
+            text="Старый текст",
+        )
+        self.client.force_login(user)
+
+        response = self.client.post(
+            reverse("edit_group_chat_message", kwargs={"message_id": message.id}),
+            {"text": "   "},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("text", response.json()["errors"])
+        message.refresh_from_db()
+        self.assertEqual(message.text, "Старый текст")
+        self.assertIsNone(message.edited_at)
+
+    def test_message_markup_escapes_author_name(self):
+        user = self.create_student("first", "pmib-231_111111@volsu.ru")
+        user.profile.full_name = "<b>Иван</b>"
+        user.profile.save(update_fields=["full_name"])
+        GroupChatMessage.objects.create(study_group=user.profile.study_group, author=user, text="<i>текст</i>")
+        self.client.force_login(user)
+
+        response = self.client.get(reverse("group_chat_updates"), HTTP_X_REQUESTED_WITH="XMLHttpRequest")
+
+        html = response.json()["html"]
+        self.assertNotIn("<b>Иван</b>", html)
+        self.assertNotIn("<i>текст</i>", html)
+        self.assertIn("&lt;i&gt;текст&lt;/i&gt;", html)
+
     def test_other_group_member_cannot_edit_message(self):
         author = self.create_student("first", "pmib-231_111111@volsu.ru")
         other = self.create_student("second", "pmib-231_222222@volsu.ru")

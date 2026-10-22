@@ -1,115 +1,48 @@
 {% for message in chat_messages %}
-    {% if not message.is_deleted %}
-    <article class="group-message
-                    {% if message.author == request.user %}is-own{% endif %}
-                    {% if not message.starts_author_group %}is-grouped{% endif %}"
+    <article class="chat-message{% if message.author == request.user %} is-own{% endif %}{% if not message.starts_author_group %} is-grouped{% endif %}"
              id="message-{{ message.id }}"
-             data-message-row
              data-message-id="{{ message.id }}"
-             data-message-own="{% if message.author == request.user %}1{% else %}0{% endif %}"
-             data-message-author="{{ message.author.profile.short_name }}"
-             data-message-text="{{ message.text|truncatechars:140 }}"
+             data-author="{{ message.author.profile.short_name }}"
+             data-text="{{ message.text }}"
+             data-reply-to="{{ message.reply_to_id|default_if_none:'' }}"
+             data-own="{% if message.author == request.user %}1{% else %}0{% endif %}"
              data-edit-url="{% url 'edit_group_chat_message' message.id %}"
              data-delete-url="{% url 'delete_group_chat_message' message.id %}"
              data-readers-url="{% url 'group_chat_readers' message.id %}">
-        {% if message.starts_author_group %}
-            <a class="group-message-avatar-link" href="{% url 'public_profile' message.author.username %}">
-                {% if message.author.profile.photo %}
-                    <img src="{{ message.author.profile.photo.url }}"
-                         class="group-message-avatar"
-                         width="34"
-                         height="34"
-                         alt="Фото автора">
-                {% else %}
-                    <span class="group-message-avatar group-message-avatar-placeholder">
-                        {{ message.author.profile.avatar_initial }}
-                    </span>
-                {% endif %}
-            </a>
-        {% else %}
-            <span class="group-message-avatar-spacer" aria-hidden="true"></span>
-        {% endif %}
-        <div class="group-message-bubble">
-            {% if message.reply_to %}
-                <a class="group-message-reply-preview" href="#message-{{ message.reply_to.id }}" data-scroll-reply>
-                    <span>{{ message.reply_to.author.profile.short_name }}</span>
-                    <small>{{ message.reply_to.text|truncatechars:110 }}</small>
+        <div class="chat-message-head">
+            {% if message.starts_author_group %}
+                <a class="chat-message-author" href="{% url 'public_profile' message.author.username %}">
+                    {{ message.author.profile.short_name }}
                 </a>
             {% endif %}
-            <div class="group-message-content">
-                {% if message.starts_author_group %}
-                    <div class="group-message-meta">
-                        <a href="{% url 'public_profile' message.author.username %}">
-                            {{ message.author.profile.short_name }}
-                        </a>
-                        <time datetime="{{ message.created_at|date:'c' }}">
-                            {{ message.created_at|date:"d.m.Y H:i" }}
-                        </time>
-                        {% if message.edited_at %}
-                            <span class="group-message-edited">изменено</span>
-                        {% endif %}
-                    </div>
-                {% elif message.edited_at %}
-                    <div class="group-message-meta is-compact">
-                        <span class="group-message-edited">изменено</span>
-                    </div>
-                {% endif %}
-                <div class="group-message-text">{{ message.text|linebreaksbr }}</div>
-            </div>
-            <div class="group-message-footer">
-                <div class="group-message-actions">
-                    <button class="group-message-action" type="button" data-reply-message="{{ message.id }}">
-                        Ответить
-                    </button>
-                    <button class="group-message-action" type="button" data-open-delete-choice="{{ message.id }}">
-                        Удалить
-                    </button>
-                    {% if message.author == request.user %}
-                        <button class="group-message-action" type="button" data-edit-message="{{ message.id }}">
-                            Редактировать
-                        </button>
-                    {% endif %}
-                </div>
-                {% if message.author == request.user %}
-                    {% if message.has_been_read_by_others %}
-                        <button class="group-message-read-state"
-                                type="button"
-                                title="Просмотрено"
-                                data-show-readers="{{ message.id }}">✓✓</button>
-                    {% else %}
-                        <span class="group-message-read-state" title="Получено">✓</span>
-                    {% endif %}
-                {% endif %}
-            </div>
+            <time datetime="{{ message.created_at|date:'c' }}">{{ message.created_at|date:"d.m.Y H:i" }}</time>
+            {% if message.edited_at %}<span>· изменено</span>{% endif %}
+        </div>
+
+        {% if message.reply_to %}
+            <a class="chat-message-quote" href="#message-{{ message.reply_to_id }}" data-jump="{{ message.reply_to_id }}">
+                <strong>{{ message.reply_to.author.profile.short_name }}</strong>
+                {% if message.reply_to.is_deleted %}сообщение удалено{% else %}{{ message.reply_to.text|truncatechars:110 }}{% endif %}
+            </a>
+        {% endif %}
+
+        <div class="chat-message-text">{{ message.text|linebreaksbr }}</div>
+
+        <div class="chat-message-actions">
+            <button type="button" data-action="reply">Ответить</button>
             {% if message.author == request.user %}
-                <form class="group-message-edit-form"
-                      method="post"
-                      action="{% url 'edit_group_chat_message' message.id %}"
-                      data-edit-form="{{ message.id }}"
-                      hidden>
-                    {% csrf_token %}
-                    <input type="hidden"
-                           name="reply_to"
-                           value="{% if message.reply_to %}{{ message.reply_to.id }}{% endif %}">
-                    <textarea name="text"
-                              class="form-control"
-                              rows="2"
-                              maxlength="2000"
-                              required>{{ message.text }}</textarea>
-                    <div class="group-message-edit-actions">
-                        <button class="btn btn-primary btn-sm" type="submit">Сохранить</button>
-                        <button class="btn btn-outline-primary btn-sm"
-                                type="button"
-                                data-cancel-edit="{{ message.id }}">Отмена</button>
-                    </div>
-                </form>
+                <button type="button" data-action="edit">Изменить</button>
             {% endif %}
-            <div class="mobile-message-hit-area" data-open-mobile-actions></div>
+            <button type="button" data-action="delete">Удалить</button>
+            {% if message.author == request.user %}
+                {% if message.has_been_read_by_others %}
+                    <button type="button" class="chat-message-status" data-action="readers">Прочитано</button>
+                {% else %}
+                    <span class="chat-message-status">Отправлено</span>
+                {% endif %}
+            {% endif %}
         </div>
     </article>
-    {% endif %}
 {% empty %}
-    <div class="group-chat-empty">
-        <p class="mb-0">Сообщений пока нет.</p>
-    </div>
+    <p class="chat-empty">Сообщений пока нет. Напишите первым.</p>
 {% endfor %}

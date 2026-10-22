@@ -525,12 +525,16 @@ def edit_group_chat_message_view(request, message_id):
     )
     form = GroupChatMessageForm(request.POST, instance=message, study_group=study_group)
 
+    is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest"
+
     if form.is_valid():
         edited_message = form.save(commit=False)
         edited_message.save(update_fields=["text", "reply_to"])
         edited_message.mark_edited()
+    elif is_ajax:
+        return JsonResponse({"errors": form.errors}, status=400)
 
-    if request.headers.get("x-requested-with") == "XMLHttpRequest":
+    if is_ajax:
         return _group_chat_json_response(request, study_group)
 
     return redirect("group_chat")
