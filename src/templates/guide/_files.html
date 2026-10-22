@@ -1,0 +1,13 @@
+<div class="guide-files">
+    {% for guide_file in files %}
+        <a href="{{ guide_file.get_absolute_url }}" class="guide-file">
+            <span class="guide-file-ext">{{ guide_file.extension|default:"FILE" }}</span>
+            <span class="guide-file-body">
+                <span class="guide-file-title">{{ guide_file.title }}</span>
+                {% if guide_file.description %}
+                    <span class="guide-file-description">{{ guide_file.description }}</span>
+                {% endif %}
+            </span>
+        </a>
+    {% endfor %}
+</div>

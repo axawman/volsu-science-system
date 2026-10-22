@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}ГОСТы — ScienceHub ВолГУ{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="card-soft p-4 p-lg-5 h-100">
+            <h1 class="section-title guide-title mb-2">ГОСТы</h1>
+            <p class="text-soft mb-3">
+                Правила оформления отчётов о НИР, курсовых и выпускных работ по ГОСТам.
+            </p>
+
+            <div class="guide-note mb-4">
+                За основу взяты ГОСТ 7.32-2017 «Отчёт о научно-исследовательской работе. Структура и правила оформления»
+                и ГОСТ Р 7.0.100-2018 «Библиографическая запись. Библиографическое описание».
+                Требования кафедры или руководителя могут отличаться — уточняйте их перед сдачей работы.
+            </div>
+
+            {% for section in sections %}
+                <div class="mini-list-item">
+                    <a href="{{ section.get_absolute_url }}" class="guide-section-link">
+                        <span class="mini-list-title fs-5">{{ section.title }}</span>
+                        {% if not section.is_published %}
+                            <span class="badge text-bg-secondary ms-1">Скрыт</span>
+                        {% endif %}
+                        {% if section.summary %}
+                            <div class="guide-section-summary">{{ section.summary }}</div>
+                        {% endif %}
+                    </a>
+                </div>
+            {% empty %}
+                <p class="text-soft mb-0">Разделы справочника пока не добавлены.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card-soft p-4">
+            <h2 class="section-title mb-3">Шаблоны и файлы</h2>
+
+            {% if general_files %}
+                {% include "guide/_files.html" with files=general_files %}
+            {% else %}
+                <p class="text-soft mb-0">Файлы пока не загружены.</p>
+            {% endif %}
+        </div>
+
+        <div class="card-soft p-4 mt-4">
+            <h2 class="section-title mb-3">Стандарты</h2>
+            <div class="meta mt-0">
+                Полные тексты ГОСТов опубликованы на официальном портале Росстандарта и в открытых копиях на сайтах вузов.
+                В справочнике у правил указаны номера пунктов, чтобы их можно было сверить с оригиналом.
+            </div>
+        </div>
+    </div>
+</div>
+
+{% include "guide/_styles.html" %}
+{% endblock %}

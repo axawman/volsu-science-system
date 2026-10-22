@@ -60,6 +60,8 @@ SEQUENCE_RESET_APPS = [
     "discussions",
     "meetings",
     "events",
+    "core",
+    "guide",
 ]
 
 

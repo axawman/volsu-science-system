@@ -1,0 +1,449 @@
+{% extends "base.html" %}
+
+{% block title %}Календарь — ScienceHub ВолГУ{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="card-soft p-3 p-lg-4">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                <h1 class="section-title calendar-page-title mb-0">Календарь</h1>
+                <div class="d-flex align-items-center gap-2">
+                    <button class="btn btn-sm btn-outline-primary calendar-nav-btn" id="prev-month" aria-label="Предыдущий месяц">‹</button>
+                    <div class="fw-semibold text-primary calendar-month-title" id="calendar-title"></div>
+                    <button class="btn btn-sm btn-outline-primary calendar-nav-btn" id="next-month" aria-label="Следующий месяц">›</button>
+                    <button class="btn btn-sm btn-outline-secondary ms-1" id="today-button">Сегодня</button>
+                </div>
+            </div>
+
+            <div class="calendar-grid mb-2">
+                <div class="calendar-head">Пн</div>
+                <div class="calendar-head">Вт</div>
+                <div class="calendar-head">Ср</div>
+                <div class="calendar-head">Чт</div>
+                <div class="calendar-head">Пт</div>
+                <div class="calendar-head">Сб</div>
+                <div class="calendar-head">Вс</div>
+            </div>
+
+            <div id="calendar-days" class="calendar-grid page-calendar" aria-live="polite"></div>
+            <p class="text-soft small mt-2 mb-0 d-none" id="calendar-error">Не удалось загрузить события. Обновите страницу.</p>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card-soft p-4">
+            <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                <h2 class="section-title mb-0" id="selected-date-title"></h2>
+                <span class="badge badge-soft" id="selected-date-count"></span>
+            </div>
+            <div id="selected-date-items"></div>
+        </div>
+
+        <div class="card-soft p-4 mt-4">
+            <h2 class="section-title mb-3">Ближайшие активности</h2>
+            {% include "core/_upcoming_activity.html" %}
+        </div>
+    </div>
+</div>
+
+<style>
+    .calendar-page-title {
+        font-size: clamp(1.25rem, 2vw, 1.6rem);
+    }
+
+    .calendar-month-title {
+        min-width: 8.5rem;
+        text-align: center;
+    }
+
+    .calendar-nav-btn {
+        width: 2rem;
+        height: 2rem;
+        border-radius: 50%;
+        padding: 0;
+        font-size: 1.2rem;
+        line-height: 1;
+    }
+
+    .page-calendar .calendar-day {
+        cursor: pointer;
+        min-height: 92px;
+        min-width: 0;
+        overflow: hidden;
+    }
+
+    .page-calendar .calendar-day.other-month {
+        cursor: default;
+    }
+
+    .page-calendar .calendar-day.is-selected {
+        border-color: var(--primary-soft);
+        box-shadow: 0 0 0 0.12rem rgba(13, 110, 253, 0.12);
+    }
+
+    .calendar-day-items {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .calendar-chip {
+        background: var(--surface-hover);
+        border-left: 3px solid var(--primary-soft);
+        border-radius: 0 0.3rem 0.3rem 0;
+        color: var(--text-main);
+        font-size: 0.7rem;
+        line-height: 1.3;
+        overflow: hidden;
+        padding: 0.05rem 0.3rem;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .calendar-chip.event {
+        border-left-color: var(--dot-muted);
+    }
+
+    .calendar-chip-more {
+        color: var(--text-muted);
+        font-size: 0.68rem;
+        padding-left: 0.3rem;
+    }
+
+    .calendar-detail-item {
+        border-left: 3px solid var(--primary-soft);
+        padding: 0.55rem 0 0.55rem 0.75rem;
+    }
+
+    .calendar-detail-item + .calendar-detail-item {
+        border-top: 1px solid var(--border-soft);
+    }
+
+    .calendar-detail-item.event {
+        border-left-color: var(--dot-muted);
+    }
+
+    .calendar-detail-title {
+        color: var(--text-main);
+        font-size: 0.95rem;
+        font-weight: 700;
+    }
+
+    .calendar-detail-description {
+        color: var(--text-muted);
+        font-size: 0.82rem;
+        line-height: 1.4;
+        white-space: pre-wrap;
+    }
+
+    .calendar-day-items .calendar-dot {
+        display: none;
+    }
+
+    @media (max-width: 767px) {
+        .calendar-grid {
+            gap: 0.25rem;
+        }
+
+        .calendar-month-title {
+            min-width: 7.5rem;
+        }
+
+        .page-calendar .calendar-day {
+            min-height: 48px;
+            padding: 0.3rem;
+        }
+
+        .calendar-day-items {
+            flex-direction: row;
+            flex-wrap: wrap;
+            gap: 3px;
+        }
+
+        .calendar-chip,
+        .calendar-chip-more {
+            display: none;
+        }
+
+        .calendar-day-items .calendar-dot {
+            display: inline-block;
+        }
+    }
+</style>
+
+{{ today|json_script:"today-data" }}
+
+<script>
+(() => {
+    const itemsUrl = "{% url 'calendar_items' %}";
+    const todayStr = JSON.parse(document.getElementById("today-data").textContent);
+
+    const titleEl = document.getElementById("calendar-title");
+    const daysEl = document.getElementById("calendar-days");
+    const errorEl = document.getElementById("calendar-error");
+    const selectedTitleEl = document.getElementById("selected-date-title");
+    const selectedCountEl = document.getElementById("selected-date-count");
+    const selectedItemsEl = document.getElementById("selected-date-items");
+
+    const monthNames = [
+        "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
+        "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"
+    ];
+    const maxChips = 3;
+    const monthCache = new Map();
+
+    const [todayYear, todayMonth] = todayStr.split("-").map(Number);
+    let currentDate = new Date(todayYear, todayMonth - 1, 1);
+    let selectedDateStr = todayStr;
+    let calendarItems = [];
+
+    function formatDateLocal(date) {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, "0");
+        const d = String(date.getDate()).padStart(2, "0");
+        return `${y}-${m}-${d}`;
+    }
+
+    function monthKey(date) {
+        return formatDateLocal(date).slice(0, 7);
+    }
+
+    function formatSelectedDate(dateStr) {
+        return new Intl.DateTimeFormat("ru-RU", {
+            day: "numeric",
+            month: "long",
+            year: "numeric"
+        }).format(new Date(`${dateStr}T00:00:00`));
+    }
+
+    async function loadMonth(key) {
+        if (!monthCache.has(key)) {
+            monthCache.set(key, fetch(`${itemsUrl}?month=${key}`)
+                .then((response) => {
+                    if (!response.ok) {
+                        throw new Error(response.statusText);
+                    }
+                    return response.json();
+                })
+                .then((data) => data.items)
+                .catch((error) => {
+                    monthCache.delete(key);
+                    throw error;
+                }));
+        }
+        return monthCache.get(key);
+    }
+
+    function getItemsForDate(dateStr) {
+        return calendarItems.filter(item => item.date === dateStr);
+    }
+
+    function renderSelectedDate(dateStr) {
+        const dayItems = getItemsForDate(dateStr);
+
+        selectedTitleEl.textContent = formatSelectedDate(dateStr);
+        selectedCountEl.textContent = `Активностей: ${dayItems.length}`;
+        selectedItemsEl.innerHTML = "";
+
+        if (!dayItems.length) {
+            const empty = document.createElement("p");
+            empty.className = "text-soft small mb-0";
+            empty.textContent = "На эту дату встреч и событий нет.";
+            selectedItemsEl.appendChild(empty);
+            return;
+        }
+
+        dayItems.forEach((item) => {
+            const wrapper = document.createElement("div");
+            wrapper.className = `calendar-detail-item ${item.type}`;
+
+            const meta = document.createElement("div");
+            meta.className = "d-flex align-items-center gap-2 flex-wrap mb-1";
+
+            const badge = document.createElement("span");
+            badge.className = "badge badge-soft";
+            badge.textContent = item.kind;
+
+            const time = document.createElement("span");
+            time.className = "meta m-0";
+            time.textContent = item.time;
+
+            const status = document.createElement("span");
+            status.className = "meta m-0";
+            status.textContent = item.is_past ? "Прошло" : "Предстоит";
+
+            meta.append(badge, time, status);
+
+            const title = document.createElement("div");
+            title.className = "calendar-detail-title";
+            title.textContent = item.title;
+
+            const details = document.createElement("div");
+            details.className = "meta";
+            if (item.location) {
+                details.append(`Место: ${item.location} · `);
+            }
+            details.append("Добавил: ");
+
+            const authorLink = document.createElement("a");
+            authorLink.className = "mini-list-title";
+            authorLink.href = item.created_by_url;
+            authorLink.textContent = item.created_by_name || item.created_by;
+            details.appendChild(authorLink);
+
+            wrapper.append(meta, title, details);
+
+            if (item.description) {
+                const description = document.createElement("div");
+                description.className = "calendar-detail-description mt-1";
+                description.textContent = item.description;
+                wrapper.appendChild(description);
+            }
+
+            selectedItemsEl.appendChild(wrapper);
+        });
+    }
+
+    function getMondayFirstDay(jsDay) {
+        return jsDay === 0 ? 6 : jsDay - 1;
+    }
+
+    function appendOtherMonthDay(dayNum) {
+        const cell = document.createElement("div");
+        cell.className = "calendar-day other-month";
+        const number = document.createElement("div");
+        number.className = "calendar-day-number";
+        number.textContent = dayNum;
+        cell.appendChild(number);
+        daysEl.appendChild(cell);
+    }
+
+    function selectDate(dateStr) {
+        selectedDateStr = dateStr;
+        daysEl.querySelectorAll(".calendar-day.is-selected").forEach((cell) => cell.classList.remove("is-selected"));
+        daysEl.querySelector(`[data-date="${dateStr}"]`)?.classList.add("is-selected");
+        renderSelectedDate(dateStr);
+    }
+
+    function renderCalendar(date) {
+        daysEl.innerHTML = "";
+
+        const year = date.getFullYear();
+        const month = date.getMonth();
+
+        titleEl.textContent = `${monthNames[month]} ${year}`;
+
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+
+        const startOffset = getMondayFirstDay(firstDay.getDay());
+        const daysInMonth = lastDay.getDate();
+        const prevMonthLastDay = new Date(year, month, 0).getDate();
+
+        for (let i = startOffset - 1; i >= 0; i--) {
+            appendOtherMonthDay(prevMonthLastDay - i);
+        }
+
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dateStr = formatDateLocal(new Date(year, month, day));
+            const dayItems = getItemsForDate(dateStr);
+
+            const cell = document.createElement("div");
+            cell.className = "calendar-day";
+            cell.dataset.date = dateStr;
+            cell.setAttribute("role", "button");
+            cell.setAttribute("tabindex", "0");
+            cell.setAttribute("aria-label", `${formatSelectedDate(dateStr)}, активностей: ${dayItems.length}`);
+            if (dateStr === todayStr) {
+                cell.classList.add("today");
+            }
+            if (dateStr === selectedDateStr) {
+                cell.classList.add("is-selected");
+            }
+
+            const number = document.createElement("div");
+            number.className = "calendar-day-number";
+            number.textContent = day;
+
+            const items = document.createElement("div");
+            items.className = "calendar-day-items";
+
+            dayItems.forEach((item, index) => {
+                const dot = document.createElement("span");
+                dot.className = `calendar-dot ${item.type}`;
+                items.appendChild(dot);
+
+                if (index < maxChips) {
+                    const chip = document.createElement("div");
+                    chip.className = `calendar-chip ${item.type}`;
+                    chip.title = `${item.time} ${item.title}`;
+                    chip.textContent = `${item.time} ${item.title}`;
+                    items.appendChild(chip);
+                }
+            });
+
+            if (dayItems.length > maxChips) {
+                const more = document.createElement("div");
+                more.className = "calendar-chip-more";
+                more.textContent = `ещё ${dayItems.length - maxChips}`;
+                items.appendChild(more);
+            }
+
+            cell.append(number, items);
+            cell.addEventListener("click", () => selectDate(dateStr));
+            cell.addEventListener("keydown", (event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    selectDate(dateStr);
+                }
+            });
+
+            daysEl.appendChild(cell);
+        }
+
+        const totalCells = startOffset + daysInMonth;
+        const remaining = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
+
+        for (let i = 1; i <= remaining; i++) {
+            appendOtherMonthDay(i);
+        }
+    }
+
+    async function showMonth(date, dateToSelect) {
+        currentDate = date;
+        const key = monthKey(date);
+
+        try {
+            const items = await loadMonth(key);
+            if (monthKey(currentDate) !== key) {
+                return;
+            }
+            calendarItems = items;
+            errorEl.classList.add("d-none");
+        } catch (error) {
+            calendarItems = [];
+            errorEl.classList.remove("d-none");
+        }
+
+        selectedDateStr = dateToSelect || (key === todayStr.slice(0, 7) ? todayStr : `${key}-01`);
+        renderCalendar(currentDate);
+        renderSelectedDate(selectedDateStr);
+    }
+
+    document.getElementById("prev-month").addEventListener("click", () => {
+        showMonth(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
+    });
+
+    document.getElementById("next-month").addEventListener("click", () => {
+        showMonth(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
+    });
+
+    document.getElementById("today-button").addEventListener("click", () => {
+        showMonth(new Date(todayYear, todayMonth - 1, 1), todayStr);
+    });
+
+    showMonth(currentDate, todayStr);
+})();
+</script>
+{% endblock %}

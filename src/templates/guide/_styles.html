@@ -1,0 +1,82 @@
+<style>
+    .guide-title {
+        font-size: clamp(1.35rem, 2vw, 1.8rem);
+    }
+
+    .guide-note {
+        background: var(--surface-muted);
+        border: 1px solid var(--border-soft);
+        border-left: 4px solid var(--primary-soft);
+        border-radius: 0.5rem;
+        color: var(--text-muted);
+        font-size: 0.92rem;
+        padding: 0.75rem 1rem;
+    }
+
+    .guide-files {
+        display: grid;
+        gap: 0.6rem;
+    }
+
+    .guide-file {
+        align-items: center;
+        border: 1px solid var(--border-soft);
+        border-radius: 0.6rem;
+        color: var(--text-main);
+        display: flex;
+        gap: 0.75rem;
+        padding: 0.6rem 0.75rem;
+        text-decoration: none;
+        transition: 0.15s ease;
+    }
+
+    .guide-file:hover {
+        background: var(--surface-hover);
+        border-color: var(--primary-soft);
+        color: var(--text-main);
+    }
+
+    .guide-file-ext {
+        background: var(--surface-hover);
+        border-radius: 0.4rem;
+        color: var(--primary-deep);
+        flex: 0 0 auto;
+        font-size: 0.7rem;
+        font-weight: 700;
+        min-width: 2.8rem;
+        padding: 0.35rem 0.4rem;
+        text-align: center;
+    }
+
+    .guide-file-body {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
+
+    .guide-file-title {
+        font-weight: 600;
+        overflow-wrap: anywhere;
+    }
+
+    .guide-file-description {
+        color: var(--text-muted);
+        font-size: 0.82rem;
+    }
+
+    .guide-section-link {
+        color: var(--text-main);
+        display: block;
+        text-decoration: none;
+    }
+
+    .guide-section-link:hover .mini-list-title {
+        color: var(--primary-soft);
+    }
+
+    .guide-section-summary {
+        color: var(--text-muted);
+        font-size: 0.88rem;
+        margin-top: 0.2rem;
+    }
+</style>

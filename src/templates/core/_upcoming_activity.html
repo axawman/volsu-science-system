@@ -1,0 +1,46 @@
+{% for item in upcoming_activity %}
+    <div class="mini-list-item activity-item">
+        <div class="d-flex align-items-start gap-3">
+            <span class="activity-dot {{ item.type }}"></span>
+            <div>
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <span class="badge badge-soft">{{ item.kind }}</span>
+                    <span class="meta m-0">{{ item.date|date:"d.m.Y H:i" }}</span>
+                </div>
+                <div class="fw-semibold mt-1">{{ item.title }}</div>
+                <div class="meta">
+                    {% if item.location %}Место: {{ item.location }}<br>{% endif %}
+                    Добавил:
+                    <a href="{% url 'public_profile' item.created_by.username %}" class="mini-list-title">
+                        {{ item.created_by.profile.short_name }}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+{% empty %}
+    <p class="text-soft mb-0">Ближайшей активности пока нет.</p>
+{% endfor %}
+
+<style>
+    .activity-item .badge {
+        font-size: 0.72rem;
+        font-weight: 600;
+    }
+
+    .activity-dot {
+        width: 0.6rem;
+        height: 0.6rem;
+        border-radius: 50%;
+        flex: 0 0 auto;
+        margin-top: 0.45rem;
+    }
+
+    .activity-dot.meeting {
+        background: var(--primary-soft);
+    }
+
+    .activity-dot.event {
+        background: var(--dot-muted);
+    }
+</style>

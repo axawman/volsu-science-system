@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     "discussions.apps.DiscussionsConfig",
     "meetings.apps.MeetingsConfig",
     "events.apps.EventsConfig",
+    "guide.apps.GuideConfig",
 ]
 
 MIDDLEWARE = [

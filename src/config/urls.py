@@ -26,10 +26,11 @@ urlpatterns = [
 
     path("", include("core.urls")),
     path("works/", include("works.urls")),
+    path("guide/", include("guide.urls")),
 ]
 
-# Без nginx Django сам отдаёт публичные картинки. Файлы работ сюда не входят:
-# их отдают отдельные view с проверкой доступа.
+# Без nginx Django сам отдаёт публичные картинки. Файлы работ и справочника
+# сюда не входят: их отдают отдельные view с проверкой доступа.
 PUBLIC_MEDIA_DIRS = ("profile_photos", "platform_news")
 
 

@@ -433,6 +433,8 @@
         <div class="collapse navbar-collapse" id="mainNavbar">
             <div class="navbar-nav me-auto ms-lg-4">
                 <a class="nav-link" href="/">Главная</a>
+                <a class="nav-link" href="{% url 'guide_index' %}">ГОСТы</a>
+                <a class="nav-link" href="{% url 'calendar' %}">Календарь</a>
                 <a class="nav-link" href="/works/my/">Мои работы</a>
                 <a class="nav-link" href="/works/create/">Добавить работу</a>
                 {% if request.user.is_authenticated and request.user.profile.study_group %}
