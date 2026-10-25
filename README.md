@@ -39,17 +39,17 @@
 
 ## Скриншоты
 
-<img width="1670" height="806" alt="Screenshot From 2026-05-29 06-38-17" src="https://github.com/user-attachments/assets/1f5b8c1c-07f1-4ca3-8f05-39c1aa3f2bb9" />
+<img width="1670" height="806" alt="Screenshot From 2026-05-29 06-38-17" src="docs/screenshots/home.png" />
 Минималистичный дизай, автотема, календарь событий
 
 ---
 
-<img width="1653" height="875" alt="Screenshot From 2026-05-29 06-38-46" src="https://github.com/user-attachments/assets/38a3f90f-9f9f-42c8-bf9e-c0f01193307d" />
+<img width="1653" height="875" alt="Screenshot From 2026-05-29 06-38-46" src="docs/screenshots/work.png" />
 Поддержка разметок Latex, Markdown и программиного кода в описании работы
 
 ---
 
-<img width="1653" height="875" alt="Screenshot From 2026-05-29 06-39-13" src="https://github.com/user-attachments/assets/b03de2cc-1e92-48f3-beac-9d1dfff1b9a6" />
+<img width="1653" height="875" alt="Screenshot From 2026-05-29 06-39-13" src="docs/screenshots/comments.png" />
 Верификация почты ВолГУ кодом доступа
 
 ---
@@ -58,7 +58,7 @@
 
 ---
 
-<img width="1653" height="875" alt="Screenshot From 2026-05-29 06-39-29" src="https://github.com/user-attachments/assets/c3ccf8e8-85e4-4b44-96f8-b0f41ff46208" />
+<img width="1653" height="875" alt="Screenshot From 2026-05-29 06-39-29" src="docs/screenshots/registration.png" />
 
 
 
